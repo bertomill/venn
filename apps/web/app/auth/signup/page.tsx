@@ -27,10 +27,17 @@ export default function SignupPage() {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${window.location.origin}/onboarding`,
         },
       })
 
       if (authError) throw authError
+
+      // Check if email confirmation is required
+      if (authData.user && !authData.session) {
+        setError('Please check your email to confirm your account before signing in.')
+        return
+      }
 
       // Redirect to onboarding
       router.push('/onboarding')
