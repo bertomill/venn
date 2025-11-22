@@ -1,0 +1,18 @@
+{
+  "name": "venn",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "mobile": "cd apps/mobile && npm start",
+    "web": "cd apps/web && npm run dev",
+    "install:mobile": "cd apps/mobile && npm install",
+    "install:web": "cd apps/web && npm install"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
