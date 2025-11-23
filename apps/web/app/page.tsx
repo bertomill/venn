@@ -81,21 +81,24 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right side - Image/Animation placeholder */}
+            {/* Right side - Video Animation */}
             <div className="relative lg:block hidden">
               <div className="relative w-full h-[600px] flex items-center justify-center">
-                {/* Placeholder for animation - dark circular background */}
+                {/* Background glow effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900 rounded-full blur-3xl opacity-40"></div>
 
-                {/* Mockup placeholder - you'll replace this with your animation */}
+                {/* Video */}
                 <div className="relative z-10 w-full h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-80 h-[600px] bg-gradient-to-br from-purple-900/10 via-pink-900/10 to-blue-900/10 rounded-3xl border border-white/5 backdrop-blur-sm flex items-center justify-center">
-                      <div className="text-white/30 text-sm">
-                        Animation will go here
-                      </div>
-                    </div>
-                  </div>
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-contain"
+                  >
+                    <source src="/venn-app.mp4" type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
                 </div>
               </div>
             </div>
