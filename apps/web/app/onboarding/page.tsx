@@ -24,7 +24,7 @@ export default function OnboardingPage() {
   }, [])
 
   const fetchInterests = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('interests')
       .select('*')
       .order('category', { ascending: true })
@@ -90,21 +90,21 @@ export default function OnboardingPage() {
   }, {} as Record<string, Interest[]>)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+    <div className="min-h-screen bg-[#0a0a0a] py-12 px-4">
       <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-3xl p-8">
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-white">
                 {step === 1 ? 'Tell us about yourself' : 'Select your interests'}
               </h1>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-white/40">
                 Step {step} of 2
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-white/10 rounded-full h-2">
               <div
-                className="bg-primary-600 h-2 rounded-full transition-all"
+                className="bg-white h-2 rounded-full transition-all"
                 style={{ width: `${(step / 2) * 100}%` }}
               />
             </div>
@@ -113,7 +113,7 @@ export default function OnboardingPage() {
           {step === 1 ? (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/60 mb-2">
                   Location
                 </label>
                 <input
@@ -121,12 +121,12 @@ export default function OnboardingPage() {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="San Francisco, CA"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 placeholder:text-gray-400"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/60 mb-2">
                   Bio
                 </label>
                 <textarea
@@ -134,29 +134,29 @@ export default function OnboardingPage() {
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us a bit about yourself..."
                   rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 placeholder:text-gray-400"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 resize-none"
                 />
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-2 text-sm text-white/40">
                   Share what you're passionate about or what you're looking for
                 </p>
               </div>
 
               <button
                 onClick={() => setStep(2)}
-                className="w-full bg-primary-600 text-white py-3 px-6 rounded-lg hover:bg-primary-700 font-medium"
+                className="w-full bg-white text-black py-3 px-6 rounded-xl hover:bg-white/90 font-semibold transition-all"
               >
                 Continue
               </button>
             </div>
           ) : (
             <div className="space-y-6">
-              <p className="text-gray-600">
+              <p className="text-white/60">
                 Choose at least 3 interests to help us connect you with like-minded people
               </p>
 
               {Object.entries(groupedInterests).map(([category, categoryInterests]) => (
                 <div key={category}>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  <h3 className="text-lg font-semibold text-white mb-3">
                     {category}
                   </h3>
                   <div className="flex flex-wrap gap-2">
@@ -164,10 +164,10 @@ export default function OnboardingPage() {
                       <button
                         key={interest.id}
                         onClick={() => toggleInterest(interest.id)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                           selectedInterests.includes(interest.id)
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-white text-black'
+                            : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
                         }`}
                       >
                         {interest.name}
@@ -180,14 +180,14 @@ export default function OnboardingPage() {
               <div className="flex gap-4 pt-6">
                 <button
                   onClick={() => setStep(1)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-300 font-medium"
+                  className="flex-1 bg-white/10 border border-white/10 text-white py-3 px-6 rounded-xl hover:bg-white/20 hover:border-white/20 font-semibold transition-all"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleComplete}
                   disabled={selectedInterests.length < 3 || loading}
-                  className="flex-1 bg-primary-600 text-white py-3 px-6 rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-white text-black py-3 px-6 rounded-xl hover:bg-white/90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {loading ? 'Completing...' : `Complete (${selectedInterests.length} selected)`}
                 </button>
