@@ -10,14 +10,45 @@ interface Interest {
   category: string
 }
 
+const TOTAL_STEPS = 5
+
+const EVENT_SIZES = [
+  { value: 'intimate', label: 'Intimate', description: '5-15 people' },
+  { value: 'medium', label: 'Medium', description: '20-50 people' },
+  { value: 'large', label: 'Large', description: '50+ people' },
+  { value: 'any', label: 'No preference', description: 'Any size works' },
+]
+
+const EVENT_VIBES = [
+  { value: 'professional', label: 'Professional', description: 'Career & business focused' },
+  { value: 'social', label: 'Social', description: 'Casual hangouts & meetups' },
+  { value: 'creative', label: 'Creative', description: 'Art, music, making things' },
+  { value: 'wellness', label: 'Wellness', description: 'Health, fitness, mindfulness' },
+  { value: 'learning', label: 'Learning', description: 'Workshops & skill-building' },
+]
+
 export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [suggestingInterests, setSuggestingInterests] = useState(false)
+
+  // All interests from DB
   const [interests, setInterests] = useState<Interest[]>([])
+
+  // Form state
+  const [aboutMe, setAboutMe] = useState('')
+  const [lookingFor, setLookingFor] = useState('')
+  const [eventSizePreference, setEventSizePreference] = useState<string[]>([])
+  const [eventVibe, setEventVibe] = useState<string[]>([])
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
-  const [location, setLocation] = useState('')
-  const [bio, setBio] = useState('')
+  const [suggestedInterestNames, setSuggestedInterestNames] = useState<string[]>([])
+
+  // Socials
+  const [twitterHandle, setTwitterHandle] = useState('')
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [instagramHandle, setInstagramHandle] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
 
   useEffect(() => {
     fetchInterests()
@@ -42,6 +73,52 @@ export default function OnboardingPage() {
     )
   }
 
+  const toggleVibe = (vibe: string) => {
+    setEventVibe(prev =>
+      prev.includes(vibe)
+        ? prev.filter(v => v !== vibe)
+        : [...prev, vibe]
+    )
+  }
+
+  const toggleSize = (size: string) => {
+    setEventSizePreference(prev =>
+      prev.includes(size)
+        ? prev.filter(s => s !== size)
+        : [...prev, size]
+    )
+  }
+
+  const handleNext = async () => {
+    if (step === 3) {
+      // Start AI analysis before transitioning
+      setSuggestingInterests(true)
+      try {
+        const response = await fetch('/api/ai/suggest-interests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ aboutMe, lookingFor }),
+        })
+
+        const data = await response.json()
+
+        if (data.suggestedInterests) {
+          setSuggestedInterestNames(data.suggestedInterests)
+          // Auto-select suggested interests
+          const suggestedIds = interests
+            .filter(i => data.suggestedInterests.includes(i.name))
+            .map(i => i.id)
+          setSelectedInterests(suggestedIds)
+        }
+      } catch (error) {
+        console.error('Error getting suggestions:', error)
+      } finally {
+        setSuggestingInterests(false)
+      }
+    }
+    setStep(prev => prev + 1)
+  }
+
   const handleComplete = async () => {
     setLoading(true)
 
@@ -50,28 +127,43 @@ export default function OnboardingPage() {
 
       if (!user) throw new Error('No user found')
 
-      // Update profile
+      // Update profile with all new fields
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          bio,
-          location,
+          about_me: aboutMe,
+          looking_for: lookingFor,
+          event_size_preference: eventSizePreference.length > 0 ? eventSizePreference : null,
+          event_vibe: eventVibe.length > 0 ? eventVibe : null,
+          twitter_handle: twitterHandle || null,
+          linkedin_url: linkedinUrl || null,
+          instagram_handle: instagramHandle || null,
+          website_url: websiteUrl || null,
+          onboarding_completed: true,
         })
         .eq('id', user.id)
 
       if (profileError) throw profileError
 
       // Add selected interests
-      const userInterests = selectedInterests.map(interestId => ({
-        user_id: user.id,
-        interest_id: interestId,
-      }))
+      if (selectedInterests.length > 0) {
+        // First remove any existing interests
+        await supabase
+          .from('user_interests')
+          .delete()
+          .eq('user_id', user.id)
 
-      const { error: interestsError } = await supabase
-        .from('user_interests')
-        .insert(userInterests)
+        const userInterests = selectedInterests.map(interestId => ({
+          user_id: user.id,
+          interest_id: interestId,
+        }))
 
-      if (interestsError) throw interestsError
+        const { error: interestsError } = await supabase
+          .from('user_interests')
+          .insert(userInterests)
+
+        if (interestsError) throw interestsError
+      }
 
       router.push('/dashboard')
     } catch (err) {
@@ -89,69 +181,147 @@ export default function OnboardingPage() {
     return acc
   }, {} as Record<string, Interest[]>)
 
+  const getStepTitle = () => {
+    switch (step) {
+      case 1: return 'Tell us about yourself'
+      case 2: return 'Who do you want to meet?'
+      case 3: return 'Event preferences'
+      case 4: return 'Your interests'
+      case 5: return 'Connect your socials'
+      default: return ''
+    }
+  }
+
+  const canProceed = () => {
+    switch (step) {
+      case 1: return aboutMe.trim().length >= 20
+      case 2: return lookingFor.trim().length >= 20
+      case 3: return eventSizePreference.length > 0
+      case 4: return selectedInterests.length >= 3
+      case 5: return true // Socials are optional
+      default: return false
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] py-12 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-3xl p-8">
+          {/* Header */}
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
               <h1 className="text-3xl font-bold text-white">
-                {step === 1 ? 'Tell us about yourself' : 'Select your interests'}
+                {getStepTitle()}
               </h1>
               <span className="text-sm text-white/40">
-                Step {step} of 2
+                Step {step} of {TOTAL_STEPS}
               </span>
             </div>
             <div className="w-full bg-white/10 rounded-full h-2">
               <div
-                className="bg-white h-2 rounded-full transition-all"
-                style={{ width: `${(step / 2) * 100}%` }}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
               />
             </div>
           </div>
 
-          {step === 1 ? (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-white/60 mb-2">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="San Francisco, CA"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white/60 mb-2">
-                  Bio
-                </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell us a bit about yourself..."
-                  rows={4}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 resize-none"
-                />
-                <p className="mt-2 text-sm text-white/40">
-                  Share what you're passionate about or what you're looking for
-                </p>
-              </div>
-
-              <button
-                onClick={() => setStep(2)}
-                className="w-full bg-white text-black py-3 px-6 rounded-xl hover:bg-white/90 font-semibold transition-all"
-              >
-                Continue
-              </button>
-            </div>
-          ) : (
+          {/* Step 1: About You */}
+          {step === 1 && (
             <div className="space-y-6">
               <p className="text-white/60">
-                Choose at least 3 interests to help us connect you with like-minded people
+                Share what you do, what you're working on, and what you're passionate about.
+                This helps our AI find events where you'll meet the right people.
+              </p>
+              <textarea
+                value={aboutMe}
+                onChange={(e) => setAboutMe(e.target.value)}
+                placeholder="I'm a product designer at a fintech startup, currently building an AI-powered budgeting app. Outside of work, I'm passionate about photography and exploring new coffee shops..."
+                rows={6}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none"
+              />
+              <p className="text-sm text-white/40">
+                {aboutMe.length < 20 ? `At least ${20 - aboutMe.length} more characters` : 'Looking good!'}
+              </p>
+            </div>
+          )}
+
+          {/* Step 2: Who You Want to Meet */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <p className="text-white/60">
+                Describe the kind of people you'd love to connect with. Think about who would make an event feel worthwhile.
+              </p>
+              <textarea
+                value={lookingFor}
+                onChange={(e) => setLookingFor(e.target.value)}
+                placeholder="I'd love to meet other founders who are building in the AI space, designers who can push my thinking on UX, and investors who are excited about consumer fintech..."
+                rows={6}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none"
+              />
+              <p className="text-sm text-white/40">
+                {lookingFor.length < 20 ? `At least ${20 - lookingFor.length} more characters` : 'Looking good!'}
+              </p>
+            </div>
+          )}
+
+          {/* Step 3: Event Preferences */}
+          {step === 3 && (
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">Event size (select all that apply)</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {EVENT_SIZES.map((size) => (
+                    <button
+                      key={size.value}
+                      onClick={() => toggleSize(size.value)}
+                      className={`p-4 rounded-xl text-left transition-all ${
+                        eventSizePreference.includes(size.value)
+                          ? 'bg-purple-500/20 border-2 border-purple-500'
+                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="font-semibold text-white">{size.label}</div>
+                      <div className="text-sm text-white/50">{size.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">Event vibe (select all that apply)</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {EVENT_VIBES.map((vibe) => (
+                    <button
+                      key={vibe.value}
+                      onClick={() => toggleVibe(vibe.value)}
+                      className={`p-4 rounded-xl text-left transition-all ${
+                        eventVibe.includes(vibe.value)
+                          ? 'bg-purple-500/20 border-2 border-purple-500'
+                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="font-semibold text-white">{vibe.label}</div>
+                      <div className="text-sm text-white/50">{vibe.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Interests */}
+          {step === 4 && (
+            <div className="space-y-6">
+              {suggestedInterestNames.length > 0 && (
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 mb-6">
+                  <p className="text-purple-300 text-sm">
+                    Based on what you shared, we've pre-selected some interests. Feel free to adjust!
+                  </p>
+                </div>
+              )}
+
+              <p className="text-white/60">
+                Select at least 3 interests to help us match you with the right events and people.
               </p>
 
               {Object.entries(groupedInterests).map(([category, categoryInterests]) => (
@@ -160,40 +330,143 @@ export default function OnboardingPage() {
                     {category}
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {categoryInterests.map((interest) => (
-                      <button
-                        key={interest.id}
-                        onClick={() => toggleInterest(interest.id)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                          selectedInterests.includes(interest.id)
-                            ? 'bg-white text-black'
-                            : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
-                        }`}
-                      >
-                        {interest.name}
-                      </button>
-                    ))}
+                    {categoryInterests.map((interest) => {
+                      const isSuggested = suggestedInterestNames.includes(interest.name)
+                      const isSelected = selectedInterests.includes(interest.id)
+                      return (
+                        <button
+                          key={interest.id}
+                          onClick={() => toggleInterest(interest.id)}
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                            isSelected
+                              ? 'bg-purple-500 text-white'
+                              : isSuggested
+                              ? 'bg-purple-500/20 border border-purple-500/50 text-purple-300 hover:bg-purple-500/30'
+                              : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
+                          }`}
+                        >
+                          {interest.name}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
+            </div>
+          )}
 
-              <div className="flex gap-4 pt-6">
-                <button
-                  onClick={() => setStep(1)}
-                  className="flex-1 bg-white/10 border border-white/10 text-white py-3 px-6 rounded-xl hover:bg-white/20 hover:border-white/20 font-semibold transition-all"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleComplete}
-                  disabled={selectedInterests.length < 3 || loading}
-                  className="flex-1 bg-white text-black py-3 px-6 rounded-xl hover:bg-white/90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {loading ? 'Completing...' : `Complete (${selectedInterests.length} selected)`}
-                </button>
+          {/* Step 5: Socials */}
+          {step === 5 && (
+            <div className="space-y-6">
+              <p className="text-white/60">
+                Optional: Add your social links so people can connect with you after events.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/60 mb-2">
+                    Twitter / X
+                  </label>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-4 bg-white/10 border border-r-0 border-white/10 rounded-l-xl text-white/50">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={twitterHandle}
+                      onChange={(e) => setTwitterHandle(e.target.value.replace('@', ''))}
+                      placeholder="username"
+                      className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/60 mb-2">
+                    LinkedIn
+                  </label>
+                  <input
+                    type="url"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    placeholder="https://linkedin.com/in/yourprofile"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/60 mb-2">
+                    Instagram
+                  </label>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-4 bg-white/10 border border-r-0 border-white/10 rounded-l-xl text-white/50">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={instagramHandle}
+                      onChange={(e) => setInstagramHandle(e.target.value.replace('@', ''))}
+                      placeholder="username"
+                      className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/60 mb-2">
+                    Website / Portfolio
+                  </label>
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="https://yourwebsite.com"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                  />
+                </div>
               </div>
             </div>
           )}
+
+          {/* Navigation */}
+          <div className="flex gap-4 pt-8">
+            {step > 1 && (
+              <button
+                onClick={() => setStep(prev => prev - 1)}
+                className="flex-1 bg-white/10 border border-white/10 text-white py-3 px-6 rounded-xl hover:bg-white/20 hover:border-white/20 font-semibold transition-all"
+              >
+                Back
+              </button>
+            )}
+
+            {step < TOTAL_STEPS ? (
+              <button
+                onClick={handleNext}
+                disabled={!canProceed() || suggestingInterests}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-6 rounded-xl hover:opacity-90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {suggestingInterests ? (
+                  <span className="flex items-center justify-center gap-3">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    AI is analyzing your profile...
+                  </span>
+                ) : (
+                  'Continue'
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={handleComplete}
+                disabled={loading}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-6 rounded-xl hover:opacity-90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {loading ? 'Completing...' : 'Complete Setup'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
