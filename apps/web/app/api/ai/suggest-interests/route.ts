@@ -38,7 +38,7 @@ Who I want to meet: ${lookingFor || 'Not provided'}
       schema: z.object({
         suggestedInterests: z.array(z.string()).describe('Array of interest names from the available list'),
         reasoning: z.string().describe('Brief explanation of why these interests were selected')
-      }),
+      }) as any,
       prompt: `Based on the following user profile, suggest the most relevant interests from this list:
 
 Available interests: ${AVAILABLE_INTERESTS.join(', ')}
@@ -51,7 +51,7 @@ Select 3-7 interests that best match this person's background, goals, and the ty
 
     // Filter to ensure only valid interests are returned
     const validInterests = object.suggestedInterests.filter(
-      interest => AVAILABLE_INTERESTS.includes(interest)
+      (interest: string) => AVAILABLE_INTERESTS.includes(interest)
     )
 
     return NextResponse.json({

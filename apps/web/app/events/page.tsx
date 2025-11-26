@@ -1,8 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
+
+interface EventAttendee {
+  user_id: string
+  status: 'going' | 'interested' | 'maybe'
+  profiles: {
+    full_name: string | null
+    avatar_url: string | null
+  }
+}
 
 interface Event {
   id: string
@@ -15,6 +24,7 @@ interface Event {
   image_url: string | null
   max_attendees: number | null
   creator_id: string
+  event_attendees: EventAttendee[]
 }
 
 export default function EventsPage() {
@@ -23,6 +33,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('upcoming')
+  const supabase = createSupabaseBrowserClient()
 
   useEffect(() => {
     checkUser()
@@ -49,7 +60,17 @@ export default function EventsPage() {
   const fetchEvents = async () => {
     let query = supabase
       .from('events')
-      .select('*')
+      .select(`
+        *,
+        event_attendees (
+          user_id,
+          status,
+          profiles (
+            full_name,
+            avatar_url
+          )
+        )
+      `)
       .order('start_date', { ascending: true })
 
     if (filter === 'upcoming') {
@@ -61,8 +82,72 @@ export default function EventsPage() {
     const { data } = await query
 
     if (data) {
-      setEvents(data)
+      setEvents(data as Event[])
     }
+  }
+
+  const handleRSVP = async (eventId: string, status: 'going' | 'interested', e: React.MouseEvent) => {
+    e.stopPropagation()
+
+    if (!user) return
+
+    const event = events.find(ev => ev.id === eventId)
+    const existingRSVP = event?.event_attendees?.find(a => a.user_id === user.id)
+
+    if (existingRSVP?.status === status) {
+      // Remove RSVP if clicking the same status
+      const { error } = await supabase
+        .from('event_attendees')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+
+      if (!error) {
+        setEvents(events.map(ev => {
+          if (ev.id === eventId) {
+            return {
+              ...ev,
+              event_attendees: ev.event_attendees.filter(a => a.user_id !== user.id)
+            }
+          }
+          return ev
+        }))
+      }
+    } else {
+      // Upsert RSVP
+      const { error } = await supabase
+        .from('event_attendees')
+        .upsert({
+          event_id: eventId,
+          user_id: user.id,
+          status
+        }, { onConflict: 'event_id,user_id' })
+
+      if (!error) {
+        setEvents(events.map(ev => {
+          if (ev.id === eventId) {
+            const filtered = ev.event_attendees.filter(a => a.user_id !== user.id)
+            return {
+              ...ev,
+              event_attendees: [...filtered, { user_id: user.id, status, profiles: { full_name: null, avatar_url: null } }]
+            }
+          }
+          return ev
+        }))
+      }
+    }
+  }
+
+  const getAttendeeCounts = (attendees: EventAttendee[] = []) => {
+    const going = attendees.filter(a => a.status === 'going').length
+    const interested = attendees.filter(a => a.status === 'interested').length
+    return { going, interested }
+  }
+
+  const getUserRSVPStatus = (attendees: EventAttendee[] = []) => {
+    if (!user) return null
+    const userAttendee = attendees.find(a => a.user_id === user.id)
+    return userAttendee?.status || null
   }
 
   const formatDate = (dateString: string) => {
@@ -141,51 +226,90 @@ export default function EventsPage() {
         {/* Events Grid */}
         {events.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {events.map((event) => (
-              <button
-                key={event.id}
-                onClick={() => router.push(`/events/${event.id}`)}
-                className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all text-left"
-              >
-                {/* Event Image/Gradient */}
+            {events.map((event) => {
+              const counts = getAttendeeCounts(event.event_attendees)
+              const userStatus = getUserRSVPStatus(event.event_attendees)
+
+              return (
                 <div
-                  className="aspect-video w-full relative"
-                  style={{ background: event.image_url || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                  key={event.id}
+                  className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  {/* Clickable area for navigation */}
+                  <button
+                    onClick={() => router.push(`/events/${event.id}`)}
+                    className="w-full text-left"
+                  >
+                    {/* Event Image/Gradient */}
+                    <div
+                      className="aspect-video w-full relative"
+                      style={{ background: event.image_url || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                  {/* Event Type Badge */}
-                  <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
-                    <span className="text-xs text-white font-medium">{event.event_type}</span>
-                  </div>
-                </div>
-
-                {/* Event Info */}
-                <div className="p-4">
-                  <h3 className="text-white font-semibold mb-2 line-clamp-1 group-hover:text-white/80 transition-colors">
-                    {event.title}
-                  </h3>
-                  <p className="text-white/60 text-sm mb-3 line-clamp-2">{event.description}</p>
-
-                  <div className="space-y-1 text-xs text-white/40">
-                    <div className="flex items-center gap-2">
-                      <span>📅</span>
-                      <span>{formatDate(event.start_date)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>📍</span>
-                      <span className="line-clamp-1">{event.location}</span>
-                    </div>
-                    {event.max_attendees && (
-                      <div className="flex items-center gap-2">
-                        <span>👥</span>
-                        <span>{event.max_attendees} spots</span>
+                      {/* Event Type Badge */}
+                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
+                        <span className="text-xs text-white font-medium">{event.event_type}</span>
                       </div>
-                    )}
+
+                      {/* Attendee Count Badge */}
+                      {(counts.going > 0 || counts.interested > 0) && (
+                        <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
+                          <span className="text-xs text-white font-medium">
+                            {counts.going > 0 && `${counts.going} going`}
+                            {counts.going > 0 && counts.interested > 0 && ' · '}
+                            {counts.interested > 0 && `${counts.interested} interested`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Event Info */}
+                    <div className="p-4 pb-2">
+                      <h3 className="text-white font-semibold mb-2 line-clamp-1 group-hover:text-white/80 transition-colors">
+                        {event.title}
+                      </h3>
+                      <p className="text-white/60 text-sm mb-3 line-clamp-2">{event.description}</p>
+
+                      <div className="space-y-1 text-xs text-white/40">
+                        <div className="flex items-center gap-2">
+                          <span>📅</span>
+                          <span>{formatDate(event.start_date)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>📍</span>
+                          <span className="line-clamp-1">{event.location}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* RSVP Buttons */}
+                  <div className="px-4 pb-4 pt-2 flex gap-2">
+                    <button
+                      onClick={(e) => handleRSVP(event.id, 'interested', e)}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        userStatus === 'interested'
+                          ? 'bg-purple-500/20 border border-purple-500/50 text-purple-300'
+                          : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {userStatus === 'interested' ? '★ Interested' : '☆ Interested'}
+                    </button>
+                    <button
+                      onClick={(e) => handleRSVP(event.id, 'going', e)}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        userStatus === 'going'
+                          ? 'bg-green-500/20 border border-green-500/50 text-green-300'
+                          : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {userStatus === 'going' ? '✓ Going' : 'Going'}
+                    </button>
                   </div>
                 </div>
-              </button>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/10">

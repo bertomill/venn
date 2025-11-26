@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
+import NotificationBell from '@/components/NotificationBell'
 
 interface Event {
   id: string
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [timezone, setTimezone] = useState('')
+  const supabase = createSupabaseBrowserClient()
 
   useEffect(() => {
     checkUser()
@@ -148,14 +150,7 @@ export default function DashboardPage() {
               </button>
 
               {/* Notifications Icon */}
-              <button className="relative text-white/60 hover:text-white transition-colors">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
-                  3
-                </div>
-              </button>
+              <NotificationBell />
 
               {/* Profile Avatar with Dropdown */}
               <div className="relative profile-dropdown">

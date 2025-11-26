@@ -1,29 +1,53 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 
-interface UserMatch {
+interface SimilarUser {
   id: string
   full_name: string
-  bio: string
-  location: string
+  bio: string | null
+  location: string | null
   avatar_url: string | null
-  shared_interests: string[]
-  match_score: number
+  about_me: string | null
+  looking_for: string | null
+  event_size_preference: string | null
+  event_vibe: string[] | null
+  interests: string[]
+  matchScore: number
+  similarity: number
 }
 
 export default function DiscoverPage() {
   const router = useRouter()
-  const [matches, setMatches] = useState<UserMatch[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [users, setUsers] = useState<SimilarUser[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<SimilarUser[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [user, setUser] = useState<{ id: string } | null>(null)
+  const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const supabase = createSupabaseBrowserClient()
 
   useEffect(() => {
     checkUser()
   }, [])
+
+  useEffect(() => {
+    // Filter users based on search query
+    if (!searchQuery.trim()) {
+      setFilteredUsers(users)
+    } else {
+      const query = searchQuery.toLowerCase()
+      setFilteredUsers(users.filter(u =>
+        u.full_name?.toLowerCase().includes(query) ||
+        u.about_me?.toLowerCase().includes(query) ||
+        u.looking_for?.toLowerCase().includes(query) ||
+        u.interests?.some(i => i.toLowerCase().includes(query))
+      ))
+    }
+  }, [searchQuery, users])
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -34,80 +58,57 @@ export default function DiscoverPage() {
     }
 
     setUser(user)
-    await fetchMatches(user.id)
+    await Promise.all([
+      findSimilarUsers(user.id),
+      fetchConnections(user.id)
+    ])
   }
 
-  const fetchMatches = async (userId: string) => {
-    try {
-      // Get user's interests
-      const { data: userInterests } = await supabase
-        .from('user_interests')
-        .select('interest_id, interests(name)')
-        .eq('user_id', userId)
+  const fetchConnections = async (userId: string) => {
+    const { data: connections } = await supabase
+      .from('connections')
+      .select('user1_id, user2_id, status')
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
 
-      const userInterestIds = userInterests?.map(ui => ui.interest_id) || []
+    const connected = new Set<string>()
+    const pending = new Set<string>()
 
-      // Get all other users with their interests
-      const { data: otherUsers } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          bio,
-          location,
-          avatar_url
-        `)
-        .neq('id', userId)
-        .not('full_name', 'is', null)
-
-      if (!otherUsers) {
-        setLoading(false)
-        return
+    connections?.forEach((c: { user1_id: string; user2_id: string; status: string }) => {
+      const otherId = c.user1_id === userId ? c.user2_id : c.user1_id
+      if (c.status === 'accepted') {
+        connected.add(otherId)
+      } else if (c.status === 'pending') {
+        pending.add(otherId)
       }
+    })
 
-      // For each user, get their interests and calculate match score
-      const matchPromises = otherUsers.map(async (otherUser) => {
-        const { data: theirInterests } = await supabase
-          .from('user_interests')
-          .select('interest_id, interests(name)')
-          .eq('user_id', otherUser.id)
+    setConnectedIds(connected)
+    setPendingIds(pending)
+  }
 
-        const theirInterestIds = theirInterests?.map(ui => ui.interest_id) || []
-
-        // Find shared interests
-        const shared = userInterestIds.filter(id => theirInterestIds.includes(id))
-        const sharedInterestNames = theirInterests
-          ?.filter(ti => shared.includes(ti.interest_id))
-          .map(ti => (ti.interests as any)?.name || '') || []
-
-        // Calculate match score (0-100)
-        const matchScore = shared.length > 0
-          ? Math.round((shared.length / Math.max(userInterestIds.length, theirInterestIds.length)) * 100)
-          : 0
-
-        return {
-          ...otherUser,
-          shared_interests: sharedInterestNames,
-          match_score: matchScore
-        }
+  const findSimilarUsers = async (userId: string) => {
+    try {
+      const response = await fetch('/api/users/similar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, limit: 50 })
       })
 
-      const allMatches = await Promise.all(matchPromises)
+      const data = await response.json()
 
-      // Sort by match score and filter out users with no shared interests
-      const sortedMatches = allMatches
-        .filter(m => m.match_score > 0)
-        .sort((a, b) => b.match_score - a.match_score)
+      if (data.users) {
+        setUsers(data.users)
+        setFilteredUsers(data.users)
+      }
 
-      setMatches(sortedMatches)
       setLoading(false)
     } catch (error) {
-      console.error('Error fetching matches:', error)
+      console.error('Error finding similar users:', error)
       setLoading(false)
     }
   }
 
-  const handleConnect = async (matchId: string) => {
+  const handleConnect = async (targetUserId: string) => {
     if (!user) return
 
     try {
@@ -115,48 +116,28 @@ export default function DiscoverPage() {
         .from('connections')
         .insert({
           user1_id: user.id,
-          user2_id: matchId,
+          user2_id: targetUserId,
           status: 'pending'
-        })
+        } as never)
 
-      // Move to next match
-      setCurrentIndex(prev => prev + 1)
+      setPendingIds(prev => new Set([...prev, targetUserId]))
     } catch (error) {
       console.error('Error connecting:', error)
     }
   }
 
-  const handleSkip = () => {
-    setCurrentIndex(prev => prev + 1)
+  const getConnectionStatus = (userId: string) => {
+    if (connectedIds.has(userId)) return 'connected'
+    if (pendingIds.has(userId)) return 'pending'
+    return 'none'
   }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
-        <div className="text-lg text-white/60">Finding your matches...</div>
-      </div>
-    )
-  }
-
-  const currentMatch = matches[currentIndex]
-
-  if (!currentMatch) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-6">
-        <div className="text-center max-w-md">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-white mb-3">
-            You've seen all matches!
-          </h2>
-          <p className="text-white/60 mb-6">
-            Check back later for new people to connect with
-          </p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-6 py-3 bg-white text-black rounded-full font-semibold hover:bg-white/90 transition-all"
-          >
-            Go to Dashboard
-          </button>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <div className="text-lg text-white/60">Finding people...</div>
         </div>
       </div>
     )
@@ -166,109 +147,157 @@ export default function DiscoverPage() {
     <div className="min-h-screen bg-[#0a0a0a] pb-24">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-white/60 hover:text-white text-sm flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
-            <h1 className="text-xl font-bold text-white">Discover</h1>
-            <div className="w-16"></div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-white">Discover People</h1>
+            <span className="text-sm text-white/40">{filteredUsers.length} people</span>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, interests, or what they're looking for..."
+              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+            />
           </div>
         </div>
       </header>
 
-      {/* Match Card */}
-      <div className="max-w-md mx-auto px-6 py-12">
-        <div className="bg-white/10 border border-white/20 backdrop-blur-md rounded-3xl overflow-hidden shadow-2xl">
-          {/* Avatar */}
-          <div className="relative aspect-[3/4] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center">
-            {currentMatch.avatar_url ? (
-              <img
-                src={currentMatch.avatar_url}
-                alt={currentMatch.full_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="text-9xl font-bold text-white drop-shadow-lg">
-                {currentMatch.full_name?.[0]?.toLowerCase() || '?'}
-              </div>
-            )}
-
-            {/* Match Score Badge */}
-            <div className="absolute top-6 right-6 bg-white rounded-full px-4 py-2 shadow-lg">
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {currentMatch.match_score}%
-              </span>
-              <span className="text-sm text-gray-600 ml-1">match</span>
-            </div>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {filteredUsers.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-4">🔍</div>
+            <p className="text-white/60">
+              {searchQuery ? 'No people match your search' : 'No people to discover yet'}
+            </p>
           </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredUsers.map((person) => {
+              const status = getConnectionStatus(person.id)
 
-          {/* Info */}
-          <div className="p-6">
-            <h2 className="text-3xl font-bold text-white mb-2">
-              {currentMatch.full_name}
-            </h2>
+              return (
+                <div
+                  key={person.id}
+                  className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
+                >
+                  {/* Header with avatar and match score */}
+                  <div className="p-5">
+                    <div className="flex items-start gap-4">
+                      {/* Avatar */}
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                        {person.avatar_url ? (
+                          <img
+                            src={person.avatar_url}
+                            alt={person.full_name}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-2xl font-bold text-white">
+                            {person.full_name?.[0]?.toUpperCase() || '?'}
+                          </span>
+                        )}
+                      </div>
 
-            {currentMatch.location && (
-              <p className="text-white/60 mb-4 flex items-center gap-2">
-                <span>📍</span> {currentMatch.location}
-              </p>
-            )}
+                      {/* Name and match score */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-lg font-semibold text-white truncate">
+                            {person.full_name}
+                          </h3>
+                          <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
+                            person.matchScore >= 70
+                              ? 'bg-green-500/20 text-green-300'
+                              : person.matchScore >= 50
+                              ? 'bg-blue-500/20 text-blue-300'
+                              : 'bg-white/10 text-white/60'
+                          }`}>
+                            {person.matchScore}% match
+                          </span>
+                        </div>
 
-            {currentMatch.bio && (
-              <p className="text-white/70 mb-6 leading-relaxed">
-                {currentMatch.bio}
-              </p>
-            )}
+                        {person.location && (
+                          <p className="text-sm text-white/50 flex items-center gap-1 mt-1">
+                            <span>📍</span> {person.location}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-            {/* Shared Interests */}
-            {currentMatch.shared_interests.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wide mb-3">
-                  Shared Interests
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {currentMatch.shared_interests.map((interest, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1.5 bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-full text-sm font-medium"
-                    >
-                      {interest}
-                    </span>
-                  ))}
+                    {/* About */}
+                    {person.about_me && (
+                      <p className="text-sm text-white/70 mt-4 line-clamp-2">
+                        {person.about_me}
+                      </p>
+                    )}
+
+                    {/* Looking for */}
+                    {person.looking_for && (
+                      <div className="mt-3">
+                        <p className="text-xs text-white/40 mb-1">Looking to meet</p>
+                        <p className="text-sm text-white/60 line-clamp-1">
+                          {person.looking_for}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Interests */}
+                    {person.interests?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-4">
+                        {person.interests.slice(0, 4).map((interest, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 bg-white/10 text-white/70 rounded-full text-xs"
+                          >
+                            {interest}
+                          </span>
+                        ))}
+                        {person.interests.length > 4 && (
+                          <span className="px-2 py-0.5 text-white/40 text-xs">
+                            +{person.interests.length - 4} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action button */}
+                  <div className="px-5 pb-5">
+                    {status === 'connected' ? (
+                      <button
+                        disabled
+                        className="w-full py-2.5 bg-green-500/20 border border-green-500/30 text-green-300 rounded-xl font-medium text-sm"
+                      >
+                        Connected
+                      </button>
+                    ) : status === 'pending' ? (
+                      <button
+                        disabled
+                        className="w-full py-2.5 bg-white/10 border border-white/10 text-white/50 rounded-xl font-medium text-sm"
+                      >
+                        Request Sent
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleConnect(person.id)}
+                        className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium text-sm hover:opacity-90 transition-all"
+                      >
+                        Connect
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })}
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-4 mt-8">
-          <button
-            onClick={handleSkip}
-            className="flex-1 py-4 bg-white/10 border border-white/20 text-white rounded-2xl font-semibold text-lg hover:bg-white/20 hover:border-white/30 transition-all"
-          >
-            Skip
-          </button>
-          <button
-            onClick={() => handleConnect(currentMatch.id)}
-            className="flex-1 py-4 bg-white text-black rounded-2xl font-semibold text-lg hover:bg-white/90 transition-all shadow-lg"
-          >
-            Connect
-          </button>
-        </div>
-
-        {/* Progress */}
-        <div className="text-center mt-6 text-white/40 text-sm">
-          {currentIndex + 1} of {matches.length}
-        </div>
-      </div>
+        )}
+      </main>
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 safe-area-bottom">
@@ -308,9 +337,12 @@ export default function DiscoverPage() {
               <span className="text-xs text-white/40">Library</span>
             </button>
 
-            <button className="flex flex-col items-center gap-1 px-4 py-2">
+            <button
+              onClick={() => router.push('/profile')}
+              className="flex flex-col items-center gap-1 px-4 py-2"
+            >
               <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </button>
           </div>

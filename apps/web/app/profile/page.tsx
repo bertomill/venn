@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 
 interface Profile {
@@ -59,10 +59,12 @@ export default function ProfilePage() {
   const [eventsAttended, setEventsAttended] = useState(0)
   const [userInterests, setUserInterests] = useState<Interest[]>([])
   const [allInterests, setAllInterests] = useState<Interest[]>([])
+  const supabase = createSupabaseBrowserClient()
 
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [editForm, setEditForm] = useState({
     full_name: '',
     about_me: '',
@@ -207,6 +209,73 @@ export default function ProfilePage() {
     }))
   }
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB')
+      return
+    }
+
+    setUploadingPhoto(true)
+
+    try {
+      // Create unique filename
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        // Try to create bucket if it doesn't exist
+        if (uploadError.message.includes('not found')) {
+          alert('Storage bucket not configured. Please create an "avatars" bucket in Supabase Storage.')
+        } else {
+          alert('Failed to upload image')
+        }
+        return
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id)
+
+      if (updateError) {
+        console.error('Update error:', updateError)
+        alert('Failed to update profile')
+        return
+      }
+
+      // Update local state
+      setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : prev)
+    } catch (err) {
+      console.error('Error uploading photo:', err)
+      alert('Failed to upload image')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   const saveProfile = async () => {
     if (!user) return
     setSaving(true)
@@ -251,6 +320,13 @@ export default function ProfilePage() {
       await fetchProfile(user.id)
       await fetchUserInterests(user.id)
       setIsEditing(false)
+
+      // Regenerate embedding in background (don't block UI)
+      fetch('/api/embeddings/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      }).catch(err => console.error('Error regenerating embedding:', err))
     } catch (err) {
       console.error('Error saving profile:', err)
     } finally {
@@ -321,16 +397,35 @@ export default function ProfilePage() {
         <div className="relative -mt-32 px-6">
           <div className="flex flex-col items-center">
             {/* Avatar */}
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-pink-400 via-purple-500 to-blue-600 flex items-center justify-center text-white text-5xl font-bold shadow-2xl border-4 border-[#0a0a0a]">
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={profile.full_name || '?'}
-                  className="w-full h-full rounded-full object-cover"
+            <div className="relative">
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-pink-400 via-purple-500 to-blue-600 flex items-center justify-center text-white text-5xl font-bold shadow-2xl border-4 border-[#0a0a0a] overflow-hidden">
+                {uploadingPhoto ? (
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                ) : profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.full_name || '?'}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  getInitials(profile?.full_name || null)
+                )}
+              </div>
+
+              {/* Upload button overlay - always visible */}
+              <label className="absolute bottom-0 right-0 w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-purple-600 transition-all shadow-lg border-2 border-[#0a0a0a]">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  disabled={uploadingPhoto}
                 />
-              ) : (
-                getInitials(profile?.full_name || null)
-              )}
+              </label>
             </div>
 
             {/* Username */}

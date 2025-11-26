@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 
 interface Interest {
@@ -32,6 +32,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [suggestingInterests, setSuggestingInterests] = useState(false)
+  const supabase = createSupabaseBrowserClient()
 
   // All interests from DB
   const [interests, setInterests] = useState<Interest[]>([])
@@ -164,6 +165,13 @@ export default function OnboardingPage() {
 
         if (interestsError) throw interestsError
       }
+
+      // Generate embedding for the new profile (don't block navigation)
+      fetch('/api/embeddings/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      }).catch(err => console.error('Error generating embedding:', err))
 
       router.push('/dashboard')
     } catch (err) {
