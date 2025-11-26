@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
-import { Database } from '@/packages/shared/database.types'
 
 const THEMES = [
   { name: 'Sunset', gradient: 'linear-gradient(135deg, #ff0080 0%, #ff8c00 50%, #ffed4e 100%)' },
@@ -131,7 +130,7 @@ export default function CreateEventPage() {
           location: formData.location,
           max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
           image_url: THEMES[selectedTheme].gradient
-        } as Database['public']['Tables']['events']['Insert'])
+        } as never)
         .select()
 
       if (error) {

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     // Store embedding in profile
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
-      .update({ embedding })
+      .update({ embedding } as never)
       .eq('id', userId)
 
     if (updateError) {

@@ -257,7 +257,7 @@ export default function ProfilePage() {
       // Update profile with new avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: publicUrl } as never)
         .eq('id', user.id)
 
       if (updateError) {
@@ -294,7 +294,7 @@ export default function ProfilePage() {
           linkedin_url: editForm.linkedin_url || null,
           instagram_handle: editForm.instagram_handle || null,
           website_url: editForm.website_url || null,
-        })
+        } as never)
         .eq('id', user.id)
 
       if (profileError) throw profileError
@@ -313,7 +313,7 @@ export default function ProfilePage() {
 
         await supabase
           .from('user_interests')
-          .insert(userInterestsData)
+          .insert(userInterestsData as never)
       }
 
       // Refresh data

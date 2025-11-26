@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
+import MessageIcon from '@/components/MessageIcon'
 
 interface Event {
   id: string
@@ -148,6 +149,9 @@ export default function DashboardPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </button>
+
+              {/* Messages Icon */}
+              <MessageIcon />
 
               {/* Notifications Icon */}
               <NotificationBell />
@@ -435,17 +439,14 @@ export default function DashboardPage() {
               <span className="text-xs text-white/40">Discover</span>
             </button>
 
-            <button className="flex flex-col items-center gap-1 px-6 py-2">
+            <button
+              onClick={() => router.push('/profile')}
+              className="flex flex-col items-center gap-1 px-6 py-2"
+            >
               <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              <span className="text-xs text-white/40">Library</span>
-            </button>
-
-            <button className="flex flex-col items-center gap-1 px-4 py-2">
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <span className="text-xs text-white/40">Profile</span>
             </button>
           </div>
         </div>

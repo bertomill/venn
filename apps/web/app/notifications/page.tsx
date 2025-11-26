@@ -71,7 +71,7 @@ export default function NotificationsPage() {
   const markAllAsRead = async (userId: string) => {
     await supabase
       .from('notifications')
-      .update({ read: true })
+      .update({ read: true } as never)
       .eq('user_id', userId)
       .eq('read', false)
   }
@@ -81,7 +81,7 @@ export default function NotificationsPage() {
 
     const { error } = await supabase
       .from('connections')
-      .update({ status: 'accepted' })
+      .update({ status: 'accepted' } as never)
       .eq('id', notification.data.connection_id)
 
     if (error) {
@@ -104,7 +104,7 @@ export default function NotificationsPage() {
 
     const { error } = await supabase
       .from('connections')
-      .update({ status: 'rejected' })
+      .update({ status: 'rejected' } as never)
       .eq('id', notification.data.connection_id)
 
     if (error) {

@@ -122,7 +122,7 @@ export default function EventDetailPage() {
           event_id: event.id,
           user_id: user.id,
           status
-        }, { onConflict: 'event_id,user_id' })
+        } as never, { onConflict: 'event_id,user_id' })
 
       if (!error) {
         // Refetch to get updated attendee info

@@ -141,7 +141,7 @@ export default function OnboardingPage() {
           instagram_handle: instagramHandle || null,
           website_url: websiteUrl || null,
           onboarding_completed: true,
-        })
+        } as never)
         .eq('id', user.id)
 
       if (profileError) throw profileError
@@ -161,7 +161,7 @@ export default function OnboardingPage() {
 
         const { error: interestsError } = await supabase
           .from('user_interests')
-          .insert(userInterests)
+          .insert(userInterests as never)
 
         if (interestsError) throw interestsError
       }

@@ -121,7 +121,7 @@ export default function EventsPage() {
           event_id: eventId,
           user_id: user.id,
           status
-        }, { onConflict: 'event_id,user_id' })
+        } as never, { onConflict: 'event_id,user_id' })
 
       if (!error) {
         setEvents(events.map(ev => {
