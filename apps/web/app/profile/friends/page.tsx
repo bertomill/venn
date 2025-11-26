@@ -176,7 +176,7 @@ export default function FriendsPage() {
               </>
             ) : (
               <>
-                <p className="text-white/60">No friends match "{searchQuery}"</p>
+                <p className="text-white/60">No friends match &quot;{searchQuery}&quot;</p>
               </>
             )}
           </div>

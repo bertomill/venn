@@ -237,8 +237,8 @@ export default function OnboardingPage() {
           {step === 1 && (
             <div className="space-y-6">
               <p className="text-white/60">
-                Share what you do, what you're working on, and what you're passionate about.
-                This helps our AI find events where you'll meet the right people.
+                Share what you do, what you&apos;re working on, and what you&apos;re passionate about.
+                This helps our AI find events where you&apos;ll meet the right people.
               </p>
               <textarea
                 value={aboutMe}
@@ -257,7 +257,7 @@ export default function OnboardingPage() {
           {step === 2 && (
             <div className="space-y-6">
               <p className="text-white/60">
-                Describe the kind of people you'd love to connect with. Think about who would make an event feel worthwhile.
+                Describe the kind of people you&apos;d love to connect with. Think about who would make an event feel worthwhile.
               </p>
               <textarea
                 value={lookingFor}
@@ -323,7 +323,7 @@ export default function OnboardingPage() {
               {suggestedInterestNames.length > 0 && (
                 <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 mb-6">
                   <p className="text-purple-300 text-sm">
-                    Based on what you shared, we've pre-selected some interests. Feel free to adjust!
+                    Based on what you shared, we&apos;ve pre-selected some interests. Feel free to adjust!
                   </p>
                 </div>
               )}

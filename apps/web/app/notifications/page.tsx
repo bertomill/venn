@@ -205,7 +205,7 @@ export default function NotificationsPage() {
             </div>
             <p className="text-white/60">No notifications yet</p>
             <p className="text-white/40 text-sm mt-2">
-              When someone sends you a friend request, you'll see it here
+              When someone sends you a friend request, you&apos;ll see it here
             </p>
           </div>
         ) : (
