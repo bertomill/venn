@@ -86,7 +86,10 @@ export async function POST(request: NextRequest) {
       .eq('user_id', userId)
 
     const interests = userInterests
-      ?.map((ui: { interests: { name: string } | null }) => ui.interests?.name)
+      ?.map((ui) => {
+        const interest = ui.interests as unknown as { name: string } | null
+        return interest?.name
+      })
       .filter((n): n is string => Boolean(n)) || []
 
     // Build the text to embed
