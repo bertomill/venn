@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 
 export default function NotFound() {
@@ -10,7 +8,7 @@ export default function NotFound() {
         <p className="text-xl text-white/60 mb-8">Page not found</p>
         <Link
           href="/"
-          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium hover:opacity-90 transition-all"
+          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium hover:opacity-90 transition-all inline-block"
         >
           Go Home
         </Link>

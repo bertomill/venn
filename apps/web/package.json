@@ -15,8 +15,8 @@
     "ai": "^5.0.102",
     "next": "^15.0.3",
     "openai": "^6.9.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
