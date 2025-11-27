@@ -372,10 +372,39 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([])
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userCount, setUserCount] = useState<number | null>(null)
+  const [eventCount, setEventCount] = useState<number | null>(null)
 
   useEffect(() => {
     fetchTrendingEvents()
+    fetchCounts()
   }, [])
+
+  const formatCount = (count: number): string => {
+    if (count < 1000) return count.toString()
+    if (count < 5000) return '1K+'
+    if (count < 10000) return '5K+'
+    if (count < 50000) return '10K+'
+    if (count < 100000) return '50K+'
+    return '100K+'
+  }
+
+  const fetchCounts = async () => {
+    const supabase = createSupabaseBrowserClient()
+
+    // Fetch user count from profiles table
+    const { count: users } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+
+    // Fetch total events count
+    const { count: totalEvents } = await supabase
+      .from('events')
+      .select('*', { count: 'exact', head: true })
+
+    if (users !== null) setUserCount(users)
+    if (totalEvents !== null) setEventCount(totalEvents)
+  }
 
   const fetchTrendingEvents = async () => {
     const supabase = createSupabaseBrowserClient()
@@ -613,11 +642,15 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-3xl md:text-4xl font-bold text-white mb-2">10K+</div>
+              <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+                {userCount !== null ? formatCount(userCount) : '-'}
+              </div>
               <div className="text-white/50 text-sm">Active Members</div>
             </div>
             <div>
-              <div className="text-3xl md:text-4xl font-bold text-white mb-2">500+</div>
+              <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+                {eventCount !== null ? formatCount(eventCount) : '-'}
+              </div>
               <div className="text-white/50 text-sm">Events Hosted</div>
             </div>
             <div>
