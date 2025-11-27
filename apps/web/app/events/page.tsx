@@ -294,7 +294,7 @@ export default function EventsPage() {
         {viewMode === 'map' && (
           <EventsMap
             events={events}
-            onEventClick={(id) => router.push(`/events/${id}`)}
+            onEventClick={(id: string) => router.push(`/events/${id}`)}
           />
         )}
 

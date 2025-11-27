@@ -267,26 +267,26 @@ export default function DiscoverPage() {
                     )}
                   </div>
 
-                  {/* Action button */}
-                  <div className="px-5 pb-5">
+                  {/* Action button - Apple style */}
+                  <div className="px-5 pb-5 flex justify-end">
                     {status === 'connected' ? (
                       <button
                         disabled
-                        className="w-full py-2.5 bg-green-500/20 border border-green-500/30 text-green-300 rounded-xl font-medium text-sm"
+                        className="px-5 py-1.5 bg-white/10 text-white/60 rounded-full font-medium text-sm"
                       >
                         Connected
                       </button>
                     ) : status === 'pending' ? (
                       <button
                         disabled
-                        className="w-full py-2.5 bg-white/10 border border-white/10 text-white/50 rounded-xl font-medium text-sm"
+                        className="px-5 py-1.5 bg-white/10 text-white/40 rounded-full font-medium text-sm"
                       >
-                        Request Sent
+                        Pending
                       </button>
                     ) : (
                       <button
                         onClick={() => handleConnect(person.id)}
-                        className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium text-sm hover:opacity-90 transition-all"
+                        className="px-5 py-1.5 bg-white/15 hover:bg-white/20 text-white/80 rounded-full font-medium text-sm transition-colors"
                       >
                         Connect
                       </button>

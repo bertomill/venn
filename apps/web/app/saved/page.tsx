@@ -72,13 +72,38 @@ export default function SavedPostsPage() {
       .order('created_at', { ascending: false })
 
     if (data) {
-      // Filter out any saves where the post was deleted
-      const validSaves = data.filter(save => save.posts !== null) as SavedPost[]
+      // Filter out any saves where the post was deleted and transform the data
+      // Supabase returns nested relations as arrays, so we need to extract first items
+      const validSaves = data
+        .filter(save => save.posts !== null && (save.posts as unknown[]).length > 0)
+        .map(save => {
+          const postsArray = save.posts as unknown[]
+          const post = postsArray[0] as {
+            id: string
+            caption: string
+            user_id: string
+            profiles: { id: string; full_name: string; avatar_url: string | null }[]
+            post_media: { id: string; media_url: string; media_type: 'image' | 'video'; width: number; height: number }[]
+          }
+          return {
+            id: save.id,
+            post_id: save.post_id,
+            board_name: save.board_name,
+            created_at: save.created_at,
+            posts: {
+              id: post.id,
+              caption: post.caption,
+              user_id: post.user_id,
+              profiles: Array.isArray(post.profiles) ? post.profiles[0] : post.profiles,
+              post_media: post.post_media
+            }
+          }
+        }) as SavedPost[]
       setSavedPosts(validSaves)
     }
   }
 
-  const unsavePost = async (saveId: string, postId: string) => {
+  const unsavePost = async (saveId: string, _postId: string) => {
     await supabase.from('post_saves').delete().eq('id', saveId)
     setSavedPosts(prev => prev.filter(s => s.id !== saveId))
   }

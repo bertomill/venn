@@ -9,9 +9,12 @@ export default function SignupPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
   const supabase = createSupabaseBrowserClient()
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -19,8 +22,19 @@ export default function SignupPage() {
     setLoading(true)
     setError(null)
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      setLoading(false)
+      return
+    }
+
     try {
-      // Sign up the user - profile will be created automatically by database trigger
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -34,13 +48,11 @@ export default function SignupPage() {
 
       if (authError) throw authError
 
-      // Check if email confirmation is required
       if (authData.user && !authData.session) {
-        setError('Please check your email to confirm your account before signing in.')
+        setSuccess(true)
         return
       }
 
-      // Redirect to onboarding
       router.push('/onboarding')
     } catch (err: any) {
       setError(err.message)
@@ -64,23 +76,193 @@ export default function SignupPage() {
     }
   }
 
+  if (success) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
+        <header className="px-6 py-8">
+          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-orange-400 bg-clip-text text-transparent">
+            Venn
+          </Link>
+        </header>
+
+        <main className="flex-1 px-6 py-8 max-w-md mx-auto w-full flex flex-col justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-orange-400 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-3">Check your email</h1>
+            <p className="text-white/60 mb-8">
+              We sent a confirmation link to<br />
+              <span className="text-white font-medium">{email}</span>
+            </p>
+            <Link
+              href="/auth/login"
+              className="text-pink-400 hover:text-pink-300 font-medium transition-colors"
+            >
+              Back to sign in
+            </Link>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4">
-      <div className="max-w-md w-full space-y-8 bg-white/5 border border-white/10 backdrop-blur-md p-10 rounded-3xl">
-        <div>
-          <h2 className="text-center text-4xl font-bold text-white mb-2">
-            Join Venn
-          </h2>
-          <p className="text-center text-sm text-white/60">
-            Start connecting with your community
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
+      {/* Header */}
+      <header className="px-6 py-8">
+        <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-orange-400 bg-clip-text text-transparent">
+          Venn
+        </Link>
+      </header>
+
+      {/* Main content */}
+      <main className="flex-1 px-6 py-8 max-w-md mx-auto w-full">
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold text-white mb-3">
+            Create your account
+          </h1>
+          <p className="text-white/50">
+            Join and connect with your community
           </p>
         </div>
 
-        {/* Google Sign Up Button */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border-l-2 border-red-500 rounded-r-lg">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSignup} className="space-y-8">
+          {/* Full name field */}
+          <div>
+            <label htmlFor="fullName" className="block text-sm text-white/60 mb-3">
+              Full name
+            </label>
+            <input
+              id="fullName"
+              name="fullName"
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full bg-transparent border-b-2 border-white/20 text-white text-lg py-3 focus:outline-none focus:border-pink-500 transition-colors placeholder-white/30"
+              placeholder="Your name"
+            />
+          </div>
+
+          {/* Email field */}
+          <div>
+            <label htmlFor="email" className="block text-sm text-white/60 mb-3">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-transparent border-b-2 border-white/20 text-white text-lg py-3 focus:outline-none focus:border-pink-500 transition-colors placeholder-white/30"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          {/* Password field */}
+          <div>
+            <label htmlFor="password" className="block text-sm text-white/60 mb-3">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-transparent border-b-2 border-white/20 text-white text-lg py-3 focus:outline-none focus:border-pink-500 transition-colors placeholder-white/30"
+              placeholder="At least 6 characters"
+            />
+          </div>
+
+          {/* Confirm password field */}
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm text-white/60 mb-3">
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full bg-transparent border-b-2 border-white/20 text-white text-lg py-3 focus:outline-none focus:border-pink-500 transition-colors placeholder-white/30"
+              placeholder="Enter password again"
+            />
+          </div>
+
+          {/* Show password toggle */}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-5 h-5 border-2 border-white/30 rounded peer-checked:border-pink-500 peer-checked:bg-pink-500 transition-all flex items-center justify-center">
+                {showPassword && (
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <span className="text-white/60 text-sm">Show password</span>
+          </label>
+
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={loading || !email || !password || !fullName || !confirmPassword}
+            className="w-full py-4 rounded-2xl text-white font-semibold bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all mt-8"
+          >
+            {loading ? 'Creating account...' : 'Create account'}
+          </button>
+
+          <p className="text-xs text-white/40 text-center">
+            By creating an account, you agree to our{' '}
+            <Link href="/terms" className="text-white/60 hover:text-white/80 underline">
+              Terms
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" className="text-white/60 hover:text-white/80 underline">
+              Privacy Policy
+            </Link>
+          </p>
+        </form>
+
+        {/* Divider */}
+        <div className="relative my-8">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-white/10"></div>
+          </div>
+          <div className="relative flex justify-center">
+            <span className="px-4 bg-[#0a0a0a] text-white/40 text-sm">or</span>
+          </div>
+        </div>
+
+        {/* Google Sign Up */}
         <button
           type="button"
           onClick={handleGoogleSignUp}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white hover:bg-white/90 text-gray-700 font-medium rounded-xl transition-all"
+          className="w-full flex items-center justify-center gap-3 py-4 border-2 border-white/10 hover:border-white/20 rounded-2xl text-white font-medium transition-all"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -103,92 +285,14 @@ export default function SignupPage() {
           Continue with Google
         </button>
 
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/10"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-[#0a0a0a] text-white/40">or</span>
-          </div>
-        </div>
-
-        <form className="space-y-6" onSubmit={handleSignup}>
-          {error && (
-            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4">
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
-          )}
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-white/60 mb-2">
-                Full name
-              </label>
-              <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/10 placeholder-white/30 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 sm:text-sm"
-                placeholder="John Doe"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-white/60 mb-2">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/10 placeholder-white/30 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 sm:text-sm"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-white/60 mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/10 placeholder-white/30 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 sm:text-sm"
-                placeholder="••••••••"
-              />
-              <p className="mt-2 text-xs text-white/40">
-                Must be at least 6 characters
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 text-sm font-semibold rounded-xl text-black bg-white hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {loading ? 'Creating account...' : 'Create account'}
-            </button>
-          </div>
-
-          <div className="text-center text-sm">
-            <span className="text-white/60">Already have an account? </span>
-            <Link href="/auth/login" className="font-medium text-white hover:text-white/80 transition-colors">
-              Sign in
-            </Link>
-          </div>
-        </form>
-      </div>
+        {/* Sign in link */}
+        <p className="mt-10 text-center text-white/50">
+          Already have an account?{' '}
+          <Link href="/auth/login" className="text-pink-400 hover:text-pink-300 font-medium transition-colors">
+            Sign in
+          </Link>
+        </p>
+      </main>
     </div>
   )
 }
