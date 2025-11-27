@@ -227,7 +227,7 @@ export default function OnboardingPage() {
             </div>
             <div className="w-full bg-white/10 rounded-full h-2">
               <div
-                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                className="bg-gradient-to-r from-primary-400 to-primary-600 h-2 rounded-full transition-all duration-500"
                 style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
               />
             </div>
@@ -245,7 +245,7 @@ export default function OnboardingPage() {
                 onChange={(e) => setAboutMe(e.target.value)}
                 placeholder="I'm a product designer at a fintech startup, currently building an AI-powered budgeting app. Outside of work, I'm passionate about photography and exploring new coffee shops..."
                 rows={6}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 resize-none"
               />
               <p className="text-sm text-white/40">
                 {aboutMe.length < 20 ? `At least ${20 - aboutMe.length} more characters` : 'Looking good!'}
@@ -264,7 +264,7 @@ export default function OnboardingPage() {
                 onChange={(e) => setLookingFor(e.target.value)}
                 placeholder="I'd love to meet other founders who are building in the AI space, designers who can push my thinking on UX, and investors who are excited about consumer fintech..."
                 rows={6}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 resize-none"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 resize-none"
               />
               <p className="text-sm text-white/40">
                 {lookingFor.length < 20 ? `At least ${20 - lookingFor.length} more characters` : 'Looking good!'}
@@ -284,7 +284,7 @@ export default function OnboardingPage() {
                       onClick={() => toggleSize(size.value)}
                       className={`p-4 rounded-xl text-left transition-all ${
                         eventSizePreference.includes(size.value)
-                          ? 'bg-purple-500/20 border-2 border-purple-500'
+                          ? 'bg-primary-500/20 border-2 border-primary-500'
                           : 'bg-white/5 border border-white/10 hover:bg-white/10'
                       }`}
                     >
@@ -304,7 +304,7 @@ export default function OnboardingPage() {
                       onClick={() => toggleVibe(vibe.value)}
                       className={`p-4 rounded-xl text-left transition-all ${
                         eventVibe.includes(vibe.value)
-                          ? 'bg-purple-500/20 border-2 border-purple-500'
+                          ? 'bg-primary-500/20 border-2 border-primary-500'
                           : 'bg-white/5 border border-white/10 hover:bg-white/10'
                       }`}
                     >
@@ -321,8 +321,8 @@ export default function OnboardingPage() {
           {step === 4 && (
             <div className="space-y-6">
               {suggestedInterestNames.length > 0 && (
-                <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 mb-6">
-                  <p className="text-purple-300 text-sm">
+                <div className="bg-primary-500/10 border border-primary-500/30 rounded-xl p-4 mb-6">
+                  <p className="text-primary-300 text-sm">
                     Based on what you shared, we&apos;ve pre-selected some interests. Feel free to adjust!
                   </p>
                 </div>
@@ -347,9 +347,9 @@ export default function OnboardingPage() {
                           onClick={() => toggleInterest(interest.id)}
                           className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                             isSelected
-                              ? 'bg-purple-500 text-white'
+                              ? 'bg-primary-500 text-white'
                               : isSuggested
-                              ? 'bg-purple-500/20 border border-purple-500/50 text-purple-300 hover:bg-purple-500/30'
+                              ? 'bg-primary-500/20 border border-primary-500/50 text-primary-300 hover:bg-primary-500/30'
                               : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
                           }`}
                         >
@@ -384,7 +384,7 @@ export default function OnboardingPage() {
                       value={twitterHandle}
                       onChange={(e) => setTwitterHandle(e.target.value.replace('@', ''))}
                       placeholder="username"
-                      className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                      className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
                     />
                   </div>
                 </div>
@@ -398,7 +398,7 @@ export default function OnboardingPage() {
                     value={linkedinUrl}
                     onChange={(e) => setLinkedinUrl(e.target.value)}
                     placeholder="https://linkedin.com/in/yourprofile"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
                   />
                 </div>
 
@@ -415,7 +415,7 @@ export default function OnboardingPage() {
                       value={instagramHandle}
                       onChange={(e) => setInstagramHandle(e.target.value.replace('@', ''))}
                       placeholder="username"
-                      className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                      className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
                     />
                   </div>
                 </div>
@@ -429,7 +429,7 @@ export default function OnboardingPage() {
                     value={websiteUrl}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
                     placeholder="https://yourwebsite.com"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
                   />
                 </div>
               </div>
@@ -451,7 +451,7 @@ export default function OnboardingPage() {
               <button
                 onClick={handleNext}
                 disabled={!canProceed() || suggestingInterests}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-6 rounded-xl hover:opacity-90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex-1 bg-gradient-to-r from-primary-400 to-primary-600 text-white py-3 px-6 rounded-xl hover:opacity-90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {suggestingInterests ? (
                   <span className="flex items-center justify-center gap-3">
@@ -469,7 +469,7 @@ export default function OnboardingPage() {
               <button
                 onClick={handleComplete}
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-6 rounded-xl hover:opacity-90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex-1 bg-gradient-to-r from-primary-400 to-primary-600 text-white py-3 px-6 rounded-xl hover:opacity-90 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {loading ? 'Completing...' : 'Complete Setup'}
               </button>

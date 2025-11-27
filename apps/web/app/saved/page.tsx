@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 
 interface SavedPost {
   id: string
@@ -117,21 +118,21 @@ export default function SavedPostsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">
+    <AppShell showHeader={false}>
+      {/* Page Header */}
+      <header className="sticky top-0 z-40 bg-black/40 backdrop-blur-xl border-b border-white/5 lg:static lg:bg-transparent lg:border-0">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.back()}
-              className="text-white/60 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors lg:hidden"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-lg font-semibold text-white">Saved Posts</h1>
-            <div className="w-6" />
+            <h1 className="text-lg font-semibold text-white lg:text-2xl lg:font-bold">Saved Posts</h1>
+            <div className="w-6 lg:hidden" />
           </div>
         </div>
       </header>
@@ -252,65 +253,6 @@ export default function SavedPostsPage() {
           </div>
         )}
       </main>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 safe-area-bottom">
-        <div className="max-w-2xl mx-auto px-6 py-3">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="flex flex-col items-center gap-1 px-4 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span className="text-xs text-white/40">Home</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/events')}
-              className="flex flex-col items-center gap-1 px-4 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="text-xs text-white/40">Events</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/create')}
-              className="flex flex-col items-center gap-1 px-4 py-2"
-            >
-              <div className="w-12 h-12 bg-gradient-to-r from-pink-500 to-orange-400 rounded-full flex items-center justify-center -mt-6 shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <span className="text-xs text-white/40">Create</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/discover')}
-              className="flex flex-col items-center gap-1 px-4 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span className="text-xs text-white/40">Discover</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/profile')}
-              className="flex flex-col items-center gap-1 px-4 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span className="text-xs text-white/40">Profile</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-    </div>
+    </AppShell>
   )
 }

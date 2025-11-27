@@ -134,26 +134,66 @@ export const uploadMultipleMedia = async (
   return results
 }
 
+export type PostType = 'update' | 'project' | 'event'
+
+export interface CreatePostOptions {
+  userId: string
+  postType: PostType
+  caption: string
+  media: UploadedMedia[]
+  tags?: string[] // interest IDs
+  location?: string
+  // Project-specific fields
+  title?: string
+  projectUrl?: string
+  githubUrl?: string
+  projectStatus?: 'in_progress' | 'completed' | 'on_hold'
+  // Event-specific fields
+  eventDate?: Date
+  eventEndDate?: Date
+  eventUrl?: string
+}
+
 /**
- * Create a post with media
+ * Create a post with media (supports updates, projects, and events)
  */
 export const createPost = async (
   userId: string,
   caption: string,
   media: UploadedMedia[],
   tags?: string[], // interest IDs
-  location?: string
+  location?: string,
+  options?: Partial<Omit<CreatePostOptions, 'userId' | 'caption' | 'media' | 'tags' | 'location'>>
 ): Promise<string> => {
   const supabase = createSupabaseBrowserClient()
+
+  // Build the post data based on type
+  const postData: Record<string, unknown> = {
+    user_id: userId,
+    caption,
+    location,
+    post_type: options?.postType || 'update',
+    title: options?.title,
+  }
+
+  // Add project-specific fields
+  if (options?.postType === 'project') {
+    postData.project_url = options.projectUrl
+    postData.github_url = options.githubUrl
+    postData.project_status = options.projectStatus
+  }
+
+  // Add event-specific fields
+  if (options?.postType === 'event') {
+    postData.event_date = options.eventDate?.toISOString()
+    postData.event_end_date = options.eventEndDate?.toISOString()
+    postData.event_url = options.eventUrl
+  }
 
   // Create the post
   const { data: post, error: postError } = await supabase
     .from('posts')
-    .insert({
-      user_id: userId,
-      caption,
-      location
-    })
+    .insert(postData)
     .select('id')
     .single()
 
