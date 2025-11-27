@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
+
+// Dynamically import the map component to avoid SSR issues
+const EventsMap = dynamic(() => import('@/components/EventsMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[60vh] bg-white/5 rounded-2xl flex items-center justify-center">
+      <div className="text-white/40">Loading map...</div>
+    </div>
+  )
+})
 
 interface EventAttendee {
   user_id: string
@@ -20,6 +31,8 @@ interface Event {
   start_date: string
   end_date: string | null
   location: string
+  latitude: number | null
+  longitude: number | null
   event_type: string
   image_url: string | null
   max_attendees: number | null
@@ -32,7 +45,8 @@ export default function EventsPage() {
   const [user, setUser] = useState<any>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('upcoming')
+  const [filter, setFilter] = useState<'all' | 'upcoming' | 'past' | 'mine'>('upcoming')
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const supabase = createSupabaseBrowserClient()
 
   useEffect(() => {
@@ -82,7 +96,17 @@ export default function EventsPage() {
     const { data } = await query
 
     if (data) {
-      setEvents(data as Event[])
+      let filteredData = data as Event[]
+
+      // Filter for "My Events" - events created by user or user is attending
+      if (filter === 'mine' && user) {
+        filteredData = filteredData.filter(event =>
+          event.creator_id === user.id ||
+          event.event_attendees?.some(a => a.user_id === user.id)
+        )
+      }
+
+      setEvents(filteredData)
     }
   }
 
@@ -189,42 +213,93 @@ export default function EventsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filter Tabs */}
-        <div className="flex gap-2 mb-8">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-6 py-2 rounded-full font-medium text-sm transition-all ${
-              filter === 'all'
-                ? 'bg-white text-black'
-                : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
-            }`}
-          >
-            All Events
-          </button>
-          <button
-            onClick={() => setFilter('upcoming')}
-            className={`px-6 py-2 rounded-full font-medium text-sm transition-all ${
-              filter === 'upcoming'
-                ? 'bg-white text-black'
-                : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
-            }`}
-          >
-            Upcoming
-          </button>
-          <button
-            onClick={() => setFilter('past')}
-            className={`px-6 py-2 rounded-full font-medium text-sm transition-all ${
-              filter === 'past'
-                ? 'bg-white text-black'
-                : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
-            }`}
-          >
-            Past
-          </button>
+        {/* Filter Tabs and View Toggle */}
+        <div className="flex items-center justify-between gap-4 mb-8">
+          {/* Filter Tabs */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-6 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap ${
+                filter === 'all'
+                  ? 'bg-white text-black'
+                  : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
+              }`}
+            >
+              All Events
+            </button>
+            <button
+              onClick={() => setFilter('upcoming')}
+              className={`px-6 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap ${
+                filter === 'upcoming'
+                  ? 'bg-white text-black'
+                  : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
+              }`}
+            >
+              Upcoming
+            </button>
+            <button
+              onClick={() => setFilter('past')}
+              className={`px-6 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap ${
+                filter === 'past'
+                  ? 'bg-white text-black'
+                  : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
+              }`}
+            >
+              Past
+            </button>
+            <button
+              onClick={() => setFilter('mine')}
+              className={`px-6 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap ${
+                filter === 'mine'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                  : 'bg-white/10 border border-white/10 text-white hover:bg-white/20 hover:border-white/20'
+              }`}
+            >
+              My Events
+            </button>
+          </div>
+
+          {/* View Toggle */}
+          <div className="flex-shrink-0 flex bg-white/10 rounded-full p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-full transition-all ${
+                viewMode === 'list'
+                  ? 'bg-white text-black'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="List view"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`p-2 rounded-full transition-all ${
+                viewMode === 'map'
+                  ? 'bg-white text-black'
+                  : 'text-white/60 hover:text-white'
+              }`}
+              title="Map view"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {/* Events Grid */}
-        {events.length > 0 ? (
+        {/* Map View */}
+        {viewMode === 'map' && (
+          <EventsMap
+            events={events}
+            onEventClick={(id) => router.push(`/events/${id}`)}
+          />
+        )}
+
+        {/* List View - Events Grid */}
+        {viewMode === 'list' && events.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {events.map((event) => {
               const counts = getAttendeeCounts(event.event_attendees)
@@ -311,7 +386,10 @@ export default function EventsPage() {
               )
             })}
           </div>
-        ) : (
+        )}
+
+        {/* Empty State - List View Only */}
+        {viewMode === 'list' && events.length === 0 && (
           <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/10">
             <div className="text-5xl mb-4">📅</div>
             <p className="text-white/40 mb-4">
@@ -319,6 +397,8 @@ export default function EventsPage() {
                 ? 'No past events yet'
                 : filter === 'upcoming'
                 ? 'No upcoming events yet'
+                : filter === 'mine'
+                ? 'No events you\'re hosting or attending'
                 : 'No events yet'}
             </p>
             <button

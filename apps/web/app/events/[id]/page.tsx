@@ -16,6 +16,14 @@ interface EventAttendee {
   profiles: Profile
 }
 
+interface Friend {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  invited?: boolean
+  attending?: boolean
+}
+
 interface Event {
   id: string
   title: string
@@ -39,6 +47,12 @@ export default function EventDetailPage() {
   const [user, setUser] = useState<any>(null)
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [loadingFriends, setLoadingFriends] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState('')
+  const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set())
+  const [sendingInvites, setSendingInvites] = useState(false)
   const supabase = createSupabaseBrowserClient()
 
   useEffect(() => {
@@ -151,6 +165,106 @@ export default function EventDetailPage() {
 
   const getAttendeesByStatus = (status: 'going' | 'interested') => {
     return event?.event_attendees?.filter(a => a.status === status) || []
+  }
+
+  const fetchFriendsForInvite = async () => {
+    if (!user || !event) return
+    setLoadingFriends(true)
+
+    try {
+      // Get all connections
+      const { data: connections } = await supabase
+        .from('connections')
+        .select('user1_id, user2_id')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .eq('status', 'accepted')
+
+      if (!connections || connections.length === 0) {
+        setFriends([])
+        setLoadingFriends(false)
+        return
+      }
+
+      const friendIds = connections.map(c =>
+        c.user1_id === user.id ? c.user2_id : c.user1_id
+      )
+
+      // Get friend profiles
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', friendIds)
+
+      // Get existing invites for this event
+      const { data: existingInvites } = await supabase
+        .from('event_invites')
+        .select('invitee_id')
+        .eq('event_id', event.id)
+
+      const invitedIds = new Set(existingInvites?.map(i => i.invitee_id) || [])
+      const attendeeIds = new Set(event.event_attendees?.map(a => a.user_id) || [])
+
+      const friendsWithStatus = (profiles || []).map(p => ({
+        ...p,
+        invited: invitedIds.has(p.id),
+        attending: attendeeIds.has(p.id)
+      }))
+
+      setFriends(friendsWithStatus)
+    } catch (error) {
+      console.error('Error fetching friends:', error)
+    } finally {
+      setLoadingFriends(false)
+    }
+  }
+
+  const openInviteModal = () => {
+    setShowInviteModal(true)
+    setSelectedFriends(new Set())
+    setInviteMessage('')
+    fetchFriendsForInvite()
+  }
+
+  const toggleFriendSelection = (friendId: string) => {
+    setSelectedFriends(prev => {
+      const next = new Set(prev)
+      if (next.has(friendId)) {
+        next.delete(friendId)
+      } else {
+        next.add(friendId)
+      }
+      return next
+    })
+  }
+
+  const sendInvites = async () => {
+    if (!user || !event || selectedFriends.size === 0) return
+    setSendingInvites(true)
+
+    try {
+      const invites = Array.from(selectedFriends).map(friendId => ({
+        event_id: event.id,
+        inviter_id: user.id,
+        invitee_id: friendId,
+        message: inviteMessage || null
+      }))
+
+      const { error } = await supabase
+        .from('event_invites')
+        .insert(invites)
+
+      if (error) {
+        console.error('Error sending invites:', error)
+        alert('Failed to send some invites. They may have already been invited.')
+      } else {
+        alert(`Invites sent to ${selectedFriends.size} friend${selectedFriends.size > 1 ? 's' : ''}!`)
+        setShowInviteModal(false)
+      }
+    } catch (error) {
+      console.error('Error sending invites:', error)
+    } finally {
+      setSendingInvites(false)
+    }
   }
 
   if (loading) {
@@ -306,6 +420,17 @@ export default function EventDetailPage() {
                 >
                   {userStatus === 'interested' ? '★ Interested' : '☆ Interested'}
                 </button>
+
+                {/* Invite Friends Button */}
+                <button
+                  onClick={openInviteModal}
+                  className="w-full py-3 px-4 rounded-xl text-sm font-medium bg-gradient-to-r from-pink-500 to-orange-400 text-white hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  Invite Friends
+                </button>
               </div>
             </div>
 
@@ -366,6 +491,141 @@ export default function EventDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Invite Friends Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-white/10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xl font-bold text-white">Invite Friends</h3>
+                <button
+                  onClick={() => setShowInviteModal(false)}
+                  className="text-white/40 hover:text-white"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-white/60 text-sm">Select friends to invite to {event?.title}</p>
+            </div>
+
+            {/* Optional Message */}
+            <div className="px-6 py-4 border-b border-white/10">
+              <input
+                type="text"
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+                placeholder="Add a personal message (optional)"
+                className="w-full bg-white/5 border border-white/10 text-white placeholder-white/30 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20"
+              />
+            </div>
+
+            {/* Friends List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingFriends ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+                </div>
+              ) : friends.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">👥</span>
+                  </div>
+                  <p className="text-white/60">No friends to invite yet</p>
+                  <button
+                    onClick={() => {
+                      setShowInviteModal(false)
+                      router.push('/discover')
+                    }}
+                    className="mt-4 text-pink-400 hover:text-pink-300 text-sm"
+                  >
+                    Find people to connect with
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {friends.map((friend) => {
+                    const isSelected = selectedFriends.has(friend.id)
+                    const isDisabled = friend.invited || friend.attending
+
+                    return (
+                      <button
+                        key={friend.id}
+                        onClick={() => !isDisabled && toggleFriendSelection(friend.id)}
+                        disabled={isDisabled}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+                          isDisabled
+                            ? 'opacity-50 cursor-not-allowed bg-white/5'
+                            : isSelected
+                            ? 'bg-pink-500/20 border border-pink-500/50'
+                            : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                        }`}
+                      >
+                        {/* Avatar */}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 via-purple-500 to-blue-600 flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0">
+                          {friend.avatar_url ? (
+                            <img
+                              src={friend.avatar_url}
+                              alt={friend.full_name || ''}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            friend.full_name?.[0]?.toUpperCase() || '?'
+                          )}
+                        </div>
+
+                        {/* Name */}
+                        <div className="flex-1 text-left">
+                          <p className="text-white font-medium">{friend.full_name || 'Anonymous'}</p>
+                          {friend.attending && (
+                            <p className="text-green-400 text-xs">Already attending</p>
+                          )}
+                          {friend.invited && !friend.attending && (
+                            <p className="text-white/40 text-xs">Already invited</p>
+                          )}
+                        </div>
+
+                        {/* Checkbox */}
+                        {!isDisabled && (
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            isSelected
+                              ? 'bg-pink-500 border-pink-500'
+                              : 'border-white/30'
+                          }`}>
+                            {isSelected && (
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-white/10">
+              <button
+                onClick={sendInvites}
+                disabled={selectedFriends.size === 0 || sendingInvites}
+                className="w-full py-3 bg-gradient-to-r from-pink-500 to-orange-400 text-white rounded-xl font-medium hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingInvites
+                  ? 'Sending...'
+                  : selectedFriends.size === 0
+                  ? 'Select friends to invite'
+                  : `Send ${selectedFriends.size} Invite${selectedFriends.size > 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

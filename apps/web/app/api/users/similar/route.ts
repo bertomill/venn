@@ -62,6 +62,9 @@ export async function POST(request: NextRequest) {
     // Try RPC first, fallback to direct query if it fails
     let similarUsers: any[] = []
 
+    console.log('Current user embedding exists:', !!currentUser.embedding)
+    console.log('Embedding length:', currentUser.embedding?.length || 0)
+
     const { data: rpcResult, error: matchError } = await supabaseAdmin
       .rpc('match_users', {
         query_embedding: currentUser.embedding,
@@ -69,8 +72,11 @@ export async function POST(request: NextRequest) {
         match_count: limit
       })
 
+    console.log('RPC result count:', rpcResult?.length || 0)
+    console.log('RPC error:', matchError)
+
     if (matchError) {
-      console.error('Match RPC error:', matchError)
+      console.error('Match RPC error:', matchError.message, matchError.details, matchError.hint)
 
       // Fallback: query all profiles directly (without vector sorting)
       const { data: fallbackUsers, error: fallbackError } = await supabaseAdmin

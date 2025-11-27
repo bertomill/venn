@@ -1,4 +1,4 @@
-import { anthropic } from '@ai-sdk/anthropic'
+import { openai } from '@ai-sdk/openai'
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
@@ -34,7 +34,7 @@ Who I want to meet: ${lookingFor || 'Not provided'}
     `.trim()
 
     const { object } = await generateObject({
-      model: anthropic('claude-sonnet-4-20250514'),
+      model: openai('gpt-4o-mini'),
       schema: z.object({
         suggestedInterests: z.array(z.string()).describe('Array of interest names from the available list'),
         reasoning: z.string().describe('Brief explanation of why these interests were selected')

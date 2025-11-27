@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
+import LocationAutocomplete from '@/components/LocationAutocomplete'
 
 const THEMES = [
   { name: 'Sunset', gradient: 'linear-gradient(135deg, #ff0080 0%, #ff8c00 50%, #ffed4e 100%)' },
@@ -41,6 +42,8 @@ export default function CreateEventPage() {
     end_date: '',
     end_time: '',
     location: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     max_attendees: ''
   })
   const supabase = createSupabaseBrowserClient()
@@ -64,6 +67,15 @@ export default function CreateEventPage() {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }))
+  }
+
+  const handleLocationChange = (location: string, coordinates: { lat: number; lng: number } | null) => {
+    setFormData(prev => ({
+      ...prev,
+      location,
+      latitude: coordinates?.lat ?? null,
+      longitude: coordinates?.lng ?? null
     }))
   }
 
@@ -128,6 +140,8 @@ export default function CreateEventPage() {
           start_date: startDateTime,
           end_date: endDateTime,
           location: formData.location,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
           max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
           image_url: THEMES[selectedTheme].gradient
         } as never)
@@ -289,15 +303,17 @@ export default function CreateEventPage() {
               {/* Location */}
               <div>
                 <label className="block text-white/40 text-sm mb-2">📍 Add Event Location</label>
-                <input
-                  type="text"
-                  name="location"
-                  required
+                <LocationAutocomplete
                   value={formData.location}
-                  onChange={handleChange}
+                  onChange={handleLocationChange}
+                  placeholder="Search for a location..."
                   className="w-full bg-white/5 border border-white/10 text-white placeholder-white/30 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
-                  placeholder="Offline location or virtual link"
                 />
+                {formData.latitude && formData.longitude && (
+                  <p className="text-white/30 text-xs mt-1 flex items-center gap-1">
+                    <span className="text-green-400">✓</span> Location coordinates saved
+                  </p>
+                )}
               </div>
 
               {/* Description Button */}

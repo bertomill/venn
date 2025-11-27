@@ -18,47 +18,25 @@ interface Profile {
   linkedin_url: string | null
   instagram_handle: string | null
   website_url: string | null
+  // New fields from designer mockups
+  date_of_birth: string | null
+  hobbies: string[] | null
+  music_genres: string[] | null
+  professional_background: string | null
+  want_to_try: string | null
+  passions: string | null
+  here_for: string | null
+  communities: string[] | null
+  similar_personalities: string[] | null
+  opposite_personalities: string[] | null
 }
 
-interface Interest {
-  id: string
-  name: string
-  category: string
-}
-
-interface Connection {
-  id: string
-  user1_id: string
-  user2_id: string
-  status: string
-}
-
-const EVENT_SIZES = [
-  { value: 'intimate', label: 'Intimate' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'large', label: 'Large' },
-  { value: 'any', label: 'Any' },
-]
-
-const EVENT_VIBES = [
-  { value: 'professional', label: 'Professional' },
-  { value: 'social', label: 'Social' },
-  { value: 'creative', label: 'Creative' },
-  { value: 'wellness', label: 'Wellness' },
-  { value: 'learning', label: 'Learning' },
-]
 
 export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [connections, setConnections] = useState<Connection[]>([])
-  const [friendRequests, setFriendRequests] = useState<Connection[]>([])
-  const [eventsCreated, setEventsCreated] = useState(0)
-  const [eventsAttended, setEventsAttended] = useState(0)
-  const [userInterests, setUserInterests] = useState<Interest[]>([])
-  const [allInterests, setAllInterests] = useState<Interest[]>([])
   const supabase = createSupabaseBrowserClient()
 
   // Edit mode states
@@ -75,12 +53,27 @@ export default function ProfilePage() {
     linkedin_url: '',
     instagram_handle: '',
     website_url: '',
+    // New fields
+    date_of_birth: '',
+    hobbies: [] as string[],
+    music_genres: [] as string[],
+    professional_background: '',
+    want_to_try: '',
+    passions: '',
+    here_for: '',
+    communities: [] as string[],
+    similar_personalities: [] as string[],
+    opposite_personalities: [] as string[],
   })
-  const [selectedInterestIds, setSelectedInterestIds] = useState<string[]>([])
 
+  // Tag input states
+  const [newHobby, setNewHobby] = useState('')
+  const [newMusic, setNewMusic] = useState('')
+  const [newCommunity, setNewCommunity] = useState('')
+  const [newSimilar, setNewSimilar] = useState('')
+  const [newOpposite, setNewOpposite] = useState('')
   useEffect(() => {
     checkUser()
-    fetchAllInterests()
   }, [])
 
   const checkUser = async () => {
@@ -93,9 +86,6 @@ export default function ProfilePage() {
 
     setUser(user)
     await fetchProfile(user.id)
-    await fetchConnections(user.id)
-    await fetchEvents(user.id)
-    await fetchUserInterests(user.id)
     setLoading(false)
   }
 
@@ -111,56 +101,6 @@ export default function ProfilePage() {
     }
   }
 
-  const fetchConnections = async (userId: string) => {
-    // Fetch accepted connections
-    const { data: accepted } = await supabase
-      .from('connections')
-      .select('*')
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .eq('status', 'accepted')
-
-    if (accepted) {
-      setConnections(accepted)
-    }
-
-    // Fetch pending requests where user is user2 (incoming requests)
-    const { data: pending } = await supabase
-      .from('connections')
-      .select('*')
-      .eq('user2_id', userId)
-      .eq('status', 'pending')
-
-    if (pending) {
-      setFriendRequests(pending)
-    }
-  }
-
-  const fetchUserInterests = async (userId: string) => {
-    const { data } = await supabase
-      .from('user_interests')
-      .select('interest_id, interests(id, name, category)')
-      .eq('user_id', userId)
-
-    if (data) {
-      const interests = data
-        .map((item: any) => item.interests)
-        .filter(Boolean) as Interest[]
-      setUserInterests(interests)
-      setSelectedInterestIds(interests.map(i => i.id))
-    }
-  }
-
-  const fetchAllInterests = async () => {
-    const { data } = await supabase
-      .from('interests')
-      .select('*')
-      .order('category', { ascending: true })
-
-    if (data) {
-      setAllInterests(data)
-    }
-  }
-
   const startEditing = () => {
     if (profile) {
       setEditForm({
@@ -173,107 +113,42 @@ export default function ProfilePage() {
         linkedin_url: profile.linkedin_url || '',
         instagram_handle: profile.instagram_handle || '',
         website_url: profile.website_url || '',
+        // New fields
+        date_of_birth: profile.date_of_birth || '',
+        hobbies: profile.hobbies || [],
+        music_genres: profile.music_genres || [],
+        professional_background: profile.professional_background || '',
+        want_to_try: profile.want_to_try || '',
+        passions: profile.passions || '',
+        here_for: profile.here_for || '',
+        communities: profile.communities || [],
+        similar_personalities: profile.similar_personalities || [],
+        opposite_personalities: profile.opposite_personalities || [],
       })
-      setSelectedInterestIds(userInterests.map(i => i.id))
       setIsEditing(true)
     }
   }
 
+  // Helper functions for tag arrays
+  const addTag = (field: keyof typeof editForm, value: string, setter: (val: string) => void) => {
+    if (value.trim()) {
+      setEditForm(prev => ({
+        ...prev,
+        [field]: [...(prev[field] as string[]), value.trim()],
+      }))
+      setter('')
+    }
+  }
+
+  const removeTag = (field: keyof typeof editForm, index: number) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: (prev[field] as string[]).filter((_, i) => i !== index),
+    }))
+  }
+
   const cancelEditing = () => {
     setIsEditing(false)
-  }
-
-  const toggleEditInterest = (interestId: string) => {
-    setSelectedInterestIds(prev =>
-      prev.includes(interestId)
-        ? prev.filter(id => id !== interestId)
-        : [...prev, interestId]
-    )
-  }
-
-  const toggleEditSize = (size: string) => {
-    setEditForm(prev => ({
-      ...prev,
-      event_size_preference: prev.event_size_preference.includes(size)
-        ? prev.event_size_preference.filter(s => s !== size)
-        : [...prev.event_size_preference, size]
-    }))
-  }
-
-  const toggleEditVibe = (vibe: string) => {
-    setEditForm(prev => ({
-      ...prev,
-      event_vibe: prev.event_vibe.includes(vibe)
-        ? prev.event_vibe.filter(v => v !== vibe)
-        : [...prev.event_vibe, vibe]
-    }))
-  }
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !user) return
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file')
-      return
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be less than 5MB')
-      return
-    }
-
-    setUploadingPhoto(true)
-
-    try {
-      // Create unique filename
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`
-      const filePath = `avatars/${fileName}`
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        // Try to create bucket if it doesn't exist
-        if (uploadError.message.includes('not found')) {
-          alert('Storage bucket not configured. Please create an "avatars" bucket in Supabase Storage.')
-        } else {
-          alert('Failed to upload image')
-        }
-        return
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath)
-
-      // Update profile with new avatar URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl } as never)
-        .eq('id', user.id)
-
-      if (updateError) {
-        console.error('Update error:', updateError)
-        alert('Failed to update profile')
-        return
-      }
-
-      // Update local state
-      setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : prev)
-    } catch (err) {
-      console.error('Error uploading photo:', err)
-      alert('Failed to upload image')
-    } finally {
-      setUploadingPhoto(false)
-    }
   }
 
   const saveProfile = async () => {
@@ -294,31 +169,24 @@ export default function ProfilePage() {
           linkedin_url: editForm.linkedin_url || null,
           instagram_handle: editForm.instagram_handle || null,
           website_url: editForm.website_url || null,
+          // New fields
+          date_of_birth: editForm.date_of_birth || null,
+          hobbies: editForm.hobbies.length > 0 ? editForm.hobbies : null,
+          music_genres: editForm.music_genres.length > 0 ? editForm.music_genres : null,
+          professional_background: editForm.professional_background || null,
+          want_to_try: editForm.want_to_try || null,
+          passions: editForm.passions || null,
+          here_for: editForm.here_for || null,
+          communities: editForm.communities.length > 0 ? editForm.communities : null,
+          similar_personalities: editForm.similar_personalities.length > 0 ? editForm.similar_personalities : null,
+          opposite_personalities: editForm.opposite_personalities.length > 0 ? editForm.opposite_personalities : null,
         } as never)
         .eq('id', user.id)
 
       if (profileError) throw profileError
 
-      // Update interests
-      await supabase
-        .from('user_interests')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (selectedInterestIds.length > 0) {
-        const userInterestsData = selectedInterestIds.map(interestId => ({
-          user_id: user.id,
-          interest_id: interestId,
-        }))
-
-        await supabase
-          .from('user_interests')
-          .insert(userInterestsData as never)
-      }
-
       // Refresh data
       await fetchProfile(user.id)
-      await fetchUserInterests(user.id)
       setIsEditing(false)
 
       // Regenerate embedding in background (don't block UI)
@@ -334,31 +202,69 @@ export default function ProfilePage() {
     }
   }
 
-  const fetchEvents = async (userId: string) => {
-    // Count events created
-    const { count: created } = await supabase
-      .from('events')
-      .select('*', { count: 'exact', head: true })
-      .eq('creator_id', userId)
-
-    if (created !== null) {
-      setEventsCreated(created)
-    }
-
-    // Count events attended
-    const { count: attended } = await supabase
-      .from('event_attendees')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-
-    if (attended !== null) {
-      setEventsAttended(attended)
-    }
-  }
-
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB')
+      return
+    }
+
+    setUploadingPhoto(true)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        alert('Failed to upload image')
+        return
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl } as never)
+        .eq('id', user.id)
+
+      if (updateError) {
+        console.error('Update error:', updateError)
+        alert('Failed to update profile')
+        return
+      }
+
+      setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : prev)
+    } catch (err) {
+      console.error('Error uploading photo:', err)
+      alert('Failed to upload image')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const getInitials = (name: string | null) => {
+    if (!name) return '?'
+    return name[0].toUpperCase()
   }
 
   if (loading) {
@@ -369,93 +275,140 @@ export default function ProfilePage() {
     )
   }
 
-  const getInitials = (name: string | null) => {
-    if (!name) return '?'
-    return name[0].toUpperCase()
-  }
+  // Tag input component for reusability
+  const TagInput = ({
+    tags,
+    field,
+    newValue,
+    setNewValue,
+    placeholder,
+    colorClass
+  }: {
+    tags: string[]
+    field: keyof typeof editForm
+    newValue: string
+    setNewValue: (val: string) => void
+    placeholder: string
+    colorClass: string
+  }) => (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag, index) => (
+          <span
+            key={index}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm ${colorClass}`}
+          >
+            {tag}
+            <button
+              onClick={() => removeTag(field, index)}
+              className="ml-1 rounded-full hover:opacity-70"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newValue}
+          onChange={(e) => setNewValue(e.target.value)}
+          placeholder={placeholder}
+          onKeyDown={(e) => e.key === 'Enter' && addTag(field, newValue, setNewValue)}
+          className="flex-1 px-4 py-2.5 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+        />
+        <button
+          onClick={() => addTag(field, newValue, setNewValue)}
+          className="px-3 py-2.5 bg-white/10 border border-white/20 text-white rounded-xl hover:bg-white/20 transition-all"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-24">
-      {/* Header with Gradient Background */}
-      <header className="relative">
-        {/* Gradient Background */}
-        <div className="h-64 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0a0a0a]" />
-
-          {/* Done Button */}
+      {/* Top Navigation Bar */}
+      <div className="sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur-sm border-b border-white/10">
+        <div className="flex items-center justify-between px-4 py-3">
           <button
-            onClick={() => router.push('/dashboard')}
-            className="absolute top-4 right-4 w-10 h-10 bg-cyan-300 rounded-full flex items-center justify-center"
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-white/80 hover:text-white transition-colors"
           >
-            <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
+          <h1 className="text-lg font-semibold text-white">Profile</h1>
+          <div className="w-6" /> {/* Spacer for centering */}
+        </div>
+      </div>
+
+      {/* Header with Gradient Background and Profile Photo */}
+      <header className="relative">
+        {/* Gradient Background */}
+        <div className="h-48 bg-gradient-to-br from-pink-500 to-orange-400 relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0a0a0a]" />
         </div>
 
-        {/* Profile Avatar and Info */}
-        <div className="relative -mt-32 px-6">
-          <div className="flex flex-col items-center">
-            {/* Avatar */}
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-pink-400 via-purple-500 to-blue-600 flex items-center justify-center text-white text-5xl font-bold shadow-2xl border-4 border-[#0a0a0a] overflow-hidden">
-                {uploadingPhoto ? (
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                ) : profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={profile.full_name || '?'}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  getInitials(profile?.full_name || null)
-                )}
-              </div>
-
-              {/* Upload button overlay - always visible */}
-              <label className="absolute bottom-0 right-0 w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-purple-600 transition-all shadow-lg border-2 border-[#0a0a0a]">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                  disabled={uploadingPhoto}
+        {/* Profile Avatar */}
+        <div className="relative -mt-20 flex flex-col items-center px-6">
+          <div className="relative">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center text-white text-5xl font-bold shadow-2xl border-4 border-[#0a0a0a] overflow-hidden">
+              {uploadingPhoto ? (
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+              ) : profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.full_name || '?'}
+                  className="w-full h-full rounded-full object-cover"
                 />
-              </label>
+              ) : (
+                getInitials(profile?.full_name || null)
+              )}
             </div>
 
-            {/* Username */}
-            {isEditing ? (
+            {/* Upload button overlay */}
+            <label className="absolute bottom-0 right-0 w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-orange-600 transition-all shadow-lg border-2 border-[#0a0a0a]">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
               <input
-                type="text"
-                value={editForm.full_name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
-                placeholder="Your name"
-                className="text-3xl font-bold text-white mt-4 bg-transparent border-b-2 border-white/30 text-center focus:outline-none focus:border-purple-500 pb-1"
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+                disabled={uploadingPhoto}
               />
-            ) : (
-              <h1 className="text-3xl font-bold text-white mt-4">
-                {profile?.full_name || 'Anonymous User'}
-              </h1>
-            )}
+            </label>
+          </div>
 
-            {/* Edit Profile Button */}
+          {/* Name */}
+          <h1 className="text-2xl font-bold text-white mt-4">
+            {profile?.full_name || 'Anonymous User'}
+          </h1>
+          <p className="text-white/60 mt-1 text-center">Share your story and connect with people who understand you</p>
+
+          {/* Edit Profile Button - moved here */}
+          <div className="mt-4">
             {isEditing ? (
-              <div className="flex gap-3 mt-4">
+              <div className="flex gap-3">
                 <button
                   onClick={cancelEditing}
-                  className="px-6 py-2.5 bg-white/10 border border-white/20 text-white rounded-xl font-semibold hover:bg-white/20 transition-all"
+                  className="px-5 py-2 bg-white/10 border border-white/20 text-white rounded-full font-medium hover:bg-white/20 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveProfile}
                   disabled={saving}
-                  className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                  className="px-5 py-2 bg-gradient-to-r from-pink-500 to-orange-400 text-white rounded-full font-medium hover:opacity-90 transition-all disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>
@@ -463,7 +416,7 @@ export default function ProfilePage() {
             ) : (
               <button
                 onClick={startEditing}
-                className="mt-4 px-6 py-2.5 bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl font-semibold hover:bg-white/30 transition-all"
+                className="px-6 py-2 bg-gradient-to-r from-pink-500 to-orange-400 text-white rounded-full font-medium hover:opacity-90 transition-all"
               >
                 Edit Profile
               </button>
@@ -472,451 +425,319 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className="px-6 mt-8">
-        {/* About Section */}
-        <section className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-4">About</h2>
+      <div className="mx-auto max-w-4xl px-4 pt-8">
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-5">
-            {/* About Me */}
-            <div>
-              <h3 className="text-sm font-semibold text-white/60 mb-2">About Me</h3>
+        <div className="space-y-8">
+          {/* Basic Information Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Basic Information</h2>
+            <div className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-white/80">Full Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editForm.full_name}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    />
+                  ) : (
+                    <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                      {profile?.full_name || <span className="text-white/40">Not set</span>}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-white/80">Date of Birth</label>
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      value={editForm.date_of_birth}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    />
+                  ) : (
+                    <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                      {profile?.date_of_birth || <span className="text-white/40">Not set</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/80">Location</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editForm.looking_for}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, looking_for: e.target.value }))}
+                    placeholder="City, State/Country"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                ) : (
+                  <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                    {profile?.location || <span className="text-white/40">Not set</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* About You Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">About You</h2>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/80">Bio</label>
               {isEditing ? (
                 <textarea
                   value={editForm.about_me}
                   onChange={(e) => setEditForm(prev => ({ ...prev, about_me: e.target.value }))}
-                  placeholder="Tell us about yourself..."
+                  placeholder="Tell us a bit about yourself..."
                   rows={4}
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
                 />
               ) : (
-                <p className="text-white/90">{profile?.about_me || <span className="text-white/40 italic">Not set</span>}</p>
+                <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white min-h-[100px]">
+                  {profile?.about_me || <span className="text-white/40">Not set</span>}
+                </div>
               )}
             </div>
+          </div>
 
-            {/* Looking For */}
-            <div>
-              <h3 className="text-sm font-semibold text-white/60 mb-2">Looking to meet</h3>
+          {/* Hobbies & Interests Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Hobbies & Interests</h2>
+            {isEditing ? (
+              <TagInput
+                tags={editForm.hobbies}
+                field="hobbies"
+                newValue={newHobby}
+                setNewValue={setNewHobby}
+                placeholder="Add a hobby"
+                colorClass="bg-blue-500/20 text-blue-300"
+              />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {profile?.hobbies?.length ? (
+                  profile.hobbies.map((hobby, index) => (
+                    <span key={index} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
+                      {hobby}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-white/40">No hobbies added</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Music Preferences Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Music Preferences</h2>
+            {isEditing ? (
+              <TagInput
+                tags={editForm.music_genres}
+                field="music_genres"
+                newValue={newMusic}
+                setNewValue={setNewMusic}
+                placeholder="Add a music genre"
+                colorClass="bg-purple-500/20 text-purple-300"
+              />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {profile?.music_genres?.length ? (
+                  profile.music_genres.map((genre, index) => (
+                    <span key={index} className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">
+                      {genre}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-white/40">No music preferences added</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Professional Background Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Professional Background</h2>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/80">Your Professional Experience</label>
               {isEditing ? (
                 <textarea
-                  value={editForm.looking_for}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, looking_for: e.target.value }))}
-                  placeholder="Who do you want to connect with?"
+                  value={editForm.professional_background}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, professional_background: e.target.value }))}
+                  placeholder="Tell us about your work and career..."
+                  rows={4}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
+                />
+              ) : (
+                <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white min-h-[100px]">
+                  {profile?.professional_background || <span className="text-white/40">Not set</span>}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Aspirations & Passions Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Aspirations & Passions</h2>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/80">Something You Want to Try</label>
+                {isEditing ? (
+                  <textarea
+                    value={editForm.want_to_try}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, want_to_try: e.target.value }))}
+                    placeholder="What new experiences are you looking forward to?"
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
+                  />
+                ) : (
+                  <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                    {profile?.want_to_try || <span className="text-white/40">Not set</span>}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/80">What Are You Passionate About?</label>
+                {isEditing ? (
+                  <textarea
+                    value={editForm.passions}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, passions: e.target.value }))}
+                    placeholder="Share what drives you..."
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
+                  />
+                ) : (
+                  <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                    {profile?.passions || <span className="text-white/40">Not set</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Connection Goals Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Connection Goals</h2>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/80">What Are You Here For?</label>
+              {isEditing ? (
+                <textarea
+                  value={editForm.here_for}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, here_for: e.target.value }))}
+                  placeholder="What kind of connections are you looking for?"
                   rows={3}
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
                 />
               ) : (
-                <p className="text-white/90">{profile?.looking_for || <span className="text-white/40 italic">Not set</span>}</p>
-              )}
-            </div>
-
-            {/* Interests */}
-            <div>
-              <h3 className="text-sm font-semibold text-white/60 mb-2">Interests</h3>
-              {isEditing ? (
-                <div className="flex flex-wrap gap-2">
-                  {allInterests.map((interest) => (
-                    <button
-                      key={interest.id}
-                      onClick={() => toggleEditInterest(interest.id)}
-                      className={`px-3 py-1 rounded-full text-sm transition-all ${
-                        selectedInterestIds.includes(interest.id)
-                          ? 'bg-purple-500 text-white'
-                          : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
-                      }`}
-                    >
-                      {interest.name}
-                    </button>
-                  ))}
+                <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                  {profile?.here_for || <span className="text-white/40">Not set</span>}
                 </div>
-              ) : userInterests.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {userInterests.map((interest) => (
-                    <span
-                      key={interest.id}
-                      className="px-3 py-1 bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-full text-sm"
-                    >
-                      {interest.name}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-white/40 italic">No interests selected</p>
-              )}
-            </div>
-
-            {/* Event Preferences */}
-            <div>
-              <h3 className="text-sm font-semibold text-white/60 mb-2">Event Preferences</h3>
-              {isEditing ? (
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs text-white/40 mb-2">Event Size</p>
-                    <div className="flex flex-wrap gap-2">
-                      {EVENT_SIZES.map((size) => (
-                        <button
-                          key={size.value}
-                          onClick={() => toggleEditSize(size.value)}
-                          className={`px-3 py-1 rounded-full text-sm transition-all ${
-                            editForm.event_size_preference.includes(size.value)
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
-                          }`}
-                        >
-                          {size.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/40 mb-2">Event Vibe</p>
-                    <div className="flex flex-wrap gap-2">
-                      {EVENT_VIBES.map((vibe) => (
-                        <button
-                          key={vibe.value}
-                          onClick={() => toggleEditVibe(vibe.value)}
-                          className={`px-3 py-1 rounded-full text-sm transition-all ${
-                            editForm.event_vibe.includes(vibe.value)
-                              ? 'bg-green-500 text-white'
-                              : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
-                          }`}
-                        >
-                          {vibe.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (profile?.event_size_preference?.length || profile?.event_vibe?.length) ? (
-                <div className="flex flex-wrap gap-2">
-                  {profile?.event_size_preference?.map((size) => (
-                    <span
-                      key={size}
-                      className="px-3 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-full text-sm capitalize"
-                    >
-                      {size} events
-                    </span>
-                  ))}
-                  {profile?.event_vibe?.map((vibe) => (
-                    <span
-                      key={vibe}
-                      className="px-3 py-1 bg-green-500/20 border border-green-500/30 text-green-300 rounded-full text-sm capitalize"
-                    >
-                      {vibe}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-white/40 italic">No preferences set</p>
               )}
             </div>
           </div>
-        </section>
 
-        {/* Socials Section */}
-        <section className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Socials</h2>
+          {/* Your Communities Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Your Communities</h2>
+            <p className="text-sm text-white/60 mb-4">Are you part of existing communities in your city?</p>
+            {isEditing ? (
+              <TagInput
+                tags={editForm.communities}
+                field="communities"
+                newValue={newCommunity}
+                setNewValue={setNewCommunity}
+                placeholder="Add a community"
+                colorClass="bg-pink-500/20 text-pink-300"
+              />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {profile?.communities?.length ? (
+                  profile.communities.map((community, index) => (
+                    <span key={index} className="px-3 py-1 bg-pink-500/20 text-pink-300 rounded-full text-sm">
+                      {community}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-white/40">No communities added</span>
+                )}
+              </div>
+            )}
+          </div>
 
-          {isEditing ? (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
-              <div>
-                <label className="block text-sm text-white/60 mb-2">Twitter / X</label>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3 bg-white/10 border border-r-0 border-white/10 rounded-l-xl text-white/50 text-sm">@</span>
-                  <input
-                    type="text"
-                    value={editForm.twitter_handle}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, twitter_handle: e.target.value.replace('@', '') }))}
-                    placeholder="username"
-                    className="flex-1 px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+          {/* Personality Traits Card */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur">
+            <h2 className="mb-6 font-serif text-2xl font-light text-white">Personality Traits</h2>
+            <div className="space-y-6">
+              {/* Similar Personalities */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-white/80">Personalities Similar to You</label>
+                {isEditing ? (
+                  <TagInput
+                    tags={editForm.similar_personalities}
+                    field="similar_personalities"
+                    newValue={newSimilar}
+                    setNewValue={setNewSimilar}
+                    placeholder="Add a personality trait"
+                    colorClass="bg-cyan-500/20 text-cyan-300"
                   />
-                </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {profile?.similar_personalities?.length ? (
+                      profile.similar_personalities.map((trait, index) => (
+                        <span key={index} className="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-sm">
+                          {trait}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-white/40">No traits added</span>
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">LinkedIn</label>
-                <input
-                  type="url"
-                  value={editForm.linkedin_url}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, linkedin_url: e.target.value }))}
-                  placeholder="https://linkedin.com/in/yourprofile"
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">Instagram</label>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3 bg-white/10 border border-r-0 border-white/10 rounded-l-xl text-white/50 text-sm">@</span>
-                  <input
-                    type="text"
-                    value={editForm.instagram_handle}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, instagram_handle: e.target.value.replace('@', '') }))}
-                    placeholder="username"
-                    className="flex-1 px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+
+              {/* Opposite Personalities */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-white/80">Personalities Very Opposite of You</label>
+                {isEditing ? (
+                  <TagInput
+                    tags={editForm.opposite_personalities}
+                    field="opposite_personalities"
+                    newValue={newOpposite}
+                    setNewValue={setNewOpposite}
+                    placeholder="Add an opposite trait"
+                    colorClass="bg-slate-500/20 text-slate-300"
                   />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">Website</label>
-                <input
-                  type="url"
-                  value={editForm.website_url}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, website_url: e.target.value }))}
-                  placeholder="https://yourwebsite.com"
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                />
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {profile?.opposite_personalities?.length ? (
+                      profile.opposite_personalities.map((trait, index) => (
+                        <span key={index} className="px-3 py-1 bg-slate-500/20 text-slate-300 rounded-full text-sm">
+                          {trait}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-white/40">No traits added</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          ) : (profile?.twitter_handle || profile?.linkedin_url || profile?.instagram_handle || profile?.website_url) ? (
-            <div className="grid grid-cols-2 gap-3">
-              {profile?.twitter_handle && (
-                <a
-                  href={`https://twitter.com/${profile.twitter_handle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-3 hover:bg-white/10 transition-all"
-                >
-                  <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/60">Twitter</p>
-                    <p className="text-white font-medium truncate">@{profile.twitter_handle}</p>
-                  </div>
-                </a>
-              )}
-
-              {profile?.linkedin_url && (
-                <a
-                  href={profile.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-3 hover:bg-white/10 transition-all"
-                >
-                  <div className="w-10 h-10 bg-[#0A66C2] rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/60">LinkedIn</p>
-                    <p className="text-white font-medium truncate">Profile</p>
-                  </div>
-                </a>
-              )}
-
-              {profile?.instagram_handle && (
-                <a
-                  href={`https://instagram.com/${profile.instagram_handle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-3 hover:bg-white/10 transition-all"
-                >
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/60">Instagram</p>
-                    <p className="text-white font-medium truncate">@{profile.instagram_handle}</p>
-                  </div>
-                </a>
-              )}
-
-              {profile?.website_url && (
-                <a
-                  href={profile.website_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-3 hover:bg-white/10 transition-all"
-                >
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/60">Website</p>
-                    <p className="text-white font-medium truncate">{profile.website_url.replace(/^https?:\/\//, '')}</p>
-                  </div>
-                </a>
-              )}
-            </div>
-          ) : (
-            <p className="text-white/40 italic bg-white/5 border border-white/10 rounded-2xl p-5">No social links added</p>
-          )}
-        </section>
-
-        {/* Friends Section */}
-        <section className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Friends</h2>
-
-          <div className="space-y-3">
-            {/* All Friends */}
-            <button
-              onClick={() => router.push('/profile/friends')}
-              className="w-full bg-white/10 border border-white/20 rounded-2xl p-5 flex items-center gap-4 hover:bg-white/15 transition-all"
-            >
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div className="flex-1 text-left">
-                <h3 className="text-lg font-semibold text-white">All Friends</h3>
-                <p className="text-sm text-white/60">{connections.length} Total</p>
-              </div>
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            {/* Invite Friends */}
-            <button className="w-full bg-white/10 border border-white/20 rounded-2xl p-5 flex items-center gap-4 hover:bg-white/15 transition-all">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center relative">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-              </div>
-              <div className="flex-1 text-left">
-                <h3 className="text-lg font-semibold text-white">Invite Friends</h3>
-              </div>
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            {/* Friend Requests */}
-            <button
-              onClick={() => router.push('/profile/requests')}
-              className="w-full bg-white/10 border border-white/20 rounded-2xl p-5 flex items-center gap-4 hover:bg-white/15 transition-all"
-            >
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center relative">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-white/30 rounded-full flex items-center justify-center">
-                  <span className="text-xs text-white font-bold">?</span>
-                </div>
-              </div>
-              <div className="flex-1 text-left">
-                <h3 className="text-lg font-semibold text-white">Friend Requests</h3>
-              </div>
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
           </div>
-        </section>
 
-        {/* Overview Section */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold text-white mb-4">Overview</h2>
-
-          <div className="space-y-3">
-            {/* Events Created */}
-            <button className="w-full bg-white/10 border border-white/20 rounded-2xl p-5 flex items-center gap-4 hover:bg-white/15 transition-all">
-              <div className="text-5xl">📅</div>
-              <div className="flex-1 text-left">
-                <h3 className="text-lg font-semibold text-white">Events Created</h3>
-                <p className="text-sm text-white/60">{eventsCreated} Total</p>
-              </div>
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            {/* Events Attended */}
-            <button className="w-full bg-white/10 border border-white/20 rounded-2xl p-5 flex items-center gap-4 hover:bg-white/15 transition-all">
-              <div className="text-5xl">🎉</div>
-              <div className="flex-1 text-left">
-                <h3 className="text-lg font-semibold text-white">Events Attended</h3>
-                <p className="text-sm text-white/60">{eventsAttended} Total</p>
-              </div>
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            {/* Connections */}
-            <button className="w-full bg-white/10 border border-white/20 rounded-2xl p-5 flex items-center gap-4 hover:bg-white/15 transition-all">
-              <div className="text-5xl">🤝</div>
-              <div className="flex-1 text-left">
-                <h3 className="text-lg font-semibold text-white">Connections Made</h3>
-                <p className="text-sm text-white/60">{connections.length} Total</p>
-              </div>
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </section>
-
-        {/* Sign Out Button */}
-        <button
-          onClick={handleSignOut}
-          className="w-full bg-red-500/20 border border-red-500/30 text-red-300 py-4 rounded-2xl font-semibold hover:bg-red-500/30 transition-all"
-        >
-          Sign Out
-        </button>
-      </main>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 safe-area-bottom">
-        <div className="max-w-2xl mx-auto px-6 py-3">
-          <div className="flex items-center justify-between">
+          {/* Sign Out */}
+          <div className="flex justify-center pt-4">
             <button
-              onClick={() => router.push('/dashboard')}
-              className="flex flex-col items-center gap-1 px-6 py-2"
+              onClick={handleSignOut}
+              className="text-red-400 hover:text-red-300 text-sm font-medium transition-all"
             >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span className="text-xs text-white/40">Home</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/events')}
-              className="flex flex-col items-center gap-1 px-6 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="text-xs text-white/40">Events</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/discover')}
-              className="flex flex-col items-center gap-1 px-6 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span className="text-xs text-white/40">Discover</span>
-            </button>
-
-            <button className="flex flex-col items-center gap-1 px-6 py-2">
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <span className="text-xs text-white/40">Library</span>
-            </button>
-
-            <button className="flex flex-col items-center gap-1 px-4 py-2">
-              <div className="w-6 h-6 bg-gradient-to-br from-pink-400 via-purple-500 to-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-xs text-white font-bold">{getInitials(profile?.full_name || null)}</span>
-              </div>
+              Sign Out
             </button>
           </div>
         </div>
-      </nav>
+      </div>
     </div>
   )
 }

@@ -41,22 +41,47 @@ export default function ChatPage() {
     if (!currentUser) return
 
     // Subscribe to new messages in this conversation
+    // We need two separate subscriptions since real-time doesn't support complex OR filters
     const channel = supabase
-      .channel(`chat-${otherUserId}`)
+      .channel(`chat-${currentUser.id}-${otherUserId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `or(and(sender_id.eq.${currentUser.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${currentUser.id}))`
+          filter: `sender_id=eq.${currentUser.id}`
         },
         (payload) => {
           const newMsg = payload.new as Message
-          setMessages(prev => [...prev, newMsg])
-
-          // Mark as read if we received it
-          if (newMsg.receiver_id === currentUser.id) {
+          // Only add if it's part of this conversation
+          if (newMsg.receiver_id === otherUserId) {
+            setMessages(prev => {
+              // Prevent duplicates
+              if (prev.some(m => m.id === newMsg.id)) return prev
+              return [...prev, newMsg]
+            })
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${currentUser.id}`
+        },
+        (payload) => {
+          const newMsg = payload.new as Message
+          // Only add if it's from the other user in this conversation
+          if (newMsg.sender_id === otherUserId) {
+            setMessages(prev => {
+              // Prevent duplicates
+              if (prev.some(m => m.id === newMsg.id)) return prev
+              return [...prev, newMsg]
+            })
+            // Mark as read since we received it
             markAsRead(newMsg.id)
           }
         }

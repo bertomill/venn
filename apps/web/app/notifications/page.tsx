@@ -12,9 +12,13 @@ interface Profile {
 
 interface Notification {
   id: string
-  type: 'friend_request' | 'friend_accepted' | 'event_rsvp' | 'event_reminder'
+  type: 'friend_request' | 'friend_accepted' | 'event_rsvp' | 'event_reminder' | 'event_invite' | 'post_like' | 'post_comment' | 'post_save' | 'comment_reply'
   from_user_id: string
-  data: { connection_id?: string; event_id?: string }
+  post_id?: string
+  comment_id?: string
+  event_id?: string
+  event_invite_id?: string
+  data: { connection_id?: string; event_id?: string; parent_comment_id?: string; message?: string }
   read: boolean
   created_at: string
   from_user?: Profile
@@ -122,6 +126,43 @@ export default function NotificationsPage() {
       .eq('id', notification.id)
   }
 
+  const handleAcceptEventInvite = async (notification: Notification) => {
+    if (!notification.event_invite_id || !notification.event_id) return
+
+    // Update invite status
+    await supabase
+      .from('event_invites')
+      .update({ status: 'accepted', responded_at: new Date().toISOString() } as never)
+      .eq('id', notification.event_invite_id)
+
+    // Navigate to the event
+    router.push(`/events/${notification.event_id}`)
+  }
+
+  const handleDeclineEventInvite = async (notification: Notification) => {
+    if (!notification.event_invite_id) return
+
+    // Update invite status
+    const { error } = await supabase
+      .from('event_invites')
+      .update({ status: 'declined', responded_at: new Date().toISOString() } as never)
+      .eq('id', notification.event_invite_id)
+
+    if (error) {
+      console.error('Error declining invite:', error)
+      return
+    }
+
+    // Remove notification
+    setNotifications(prev => prev.filter(n => n.id !== notification.id))
+
+    // Delete the notification
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', notification.id)
+  }
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -145,26 +186,89 @@ export default function NotificationsPage() {
         return {
           title: 'Friend Request',
           message: `${name} wants to connect with you`,
-          showActions: true
+          showActions: true,
+          icon: 'friend',
+          color: 'bg-blue-500'
         }
       case 'friend_accepted':
         return {
           title: 'Request Accepted',
           message: `${name} accepted your connection request`,
-          showActions: false
+          showActions: false,
+          icon: 'check',
+          color: 'bg-green-500'
         }
       case 'event_rsvp':
         return {
           title: 'Event RSVP',
           message: `${name} is going to an event you're interested in`,
-          showActions: false
+          showActions: false,
+          icon: 'event',
+          color: 'bg-purple-500'
+        }
+      case 'post_like':
+        return {
+          title: 'New Like',
+          message: `${name} liked your post`,
+          showActions: false,
+          icon: 'heart',
+          color: 'bg-red-500',
+          link: notification.post_id ? `/post/${notification.post_id}` : undefined
+        }
+      case 'post_comment':
+        return {
+          title: 'New Comment',
+          message: `${name} commented on your post`,
+          showActions: false,
+          icon: 'comment',
+          color: 'bg-blue-500',
+          link: notification.post_id ? `/post/${notification.post_id}` : undefined
+        }
+      case 'comment_reply':
+        return {
+          title: 'New Reply',
+          message: `${name} replied to your comment`,
+          showActions: false,
+          icon: 'reply',
+          color: 'bg-cyan-500',
+          link: notification.post_id ? `/post/${notification.post_id}` : undefined
+        }
+      case 'post_save':
+        return {
+          title: 'Post Saved',
+          message: `${name} saved your post`,
+          showActions: false,
+          icon: 'bookmark',
+          color: 'bg-yellow-500',
+          link: notification.post_id ? `/post/${notification.post_id}` : undefined
+        }
+      case 'event_invite':
+        return {
+          title: 'Event Invite',
+          message: notification.data.message
+            ? `${name} invited you to an event: "${notification.data.message}"`
+            : `${name} invited you to an event`,
+          showActions: true,
+          actionType: 'event_invite' as const,
+          icon: 'calendar',
+          color: 'bg-pink-500',
+          link: notification.event_id ? `/events/${notification.event_id}` : undefined
         }
       default:
         return {
           title: 'Notification',
           message: 'You have a new notification',
-          showActions: false
+          showActions: false,
+          icon: 'bell',
+          color: 'bg-gray-500'
         }
+    }
+  }
+
+  const handleNotificationClick = (notification: Notification) => {
+    const content = getNotificationContent(notification)
+    if (content.link) {
+      router.push(content.link)
     }
   }
 
@@ -213,13 +317,15 @@ export default function NotificationsPage() {
             {notifications.map((notification) => {
               const content = getNotificationContent(notification)
               const fromUser = notification.from_user
+              const isClickable = 'link' in content && content.link
 
               return (
                 <div
                   key={notification.id}
+                  onClick={() => isClickable && handleNotificationClick(notification)}
                   className={`bg-white/5 border rounded-2xl p-4 transition-all ${
                     notification.read ? 'border-white/10' : 'border-purple-500/50 bg-purple-500/5'
-                  }`}
+                  } ${isClickable ? 'cursor-pointer hover:bg-white/10' : ''}`}
                 >
                   <div className="flex items-start gap-4">
                     {/* Avatar with type icon */}
@@ -238,24 +344,51 @@ export default function NotificationsPage() {
                         )}
                       </div>
                       {/* Type icon badge */}
-                      <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center ${
-                        notification.type === 'friend_request'
-                          ? 'bg-blue-500'
-                          : notification.type === 'friend_accepted'
-                          ? 'bg-green-500'
-                          : 'bg-purple-500'
-                      }`}>
-                        {notification.type === 'friend_request' && (
+                      <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center ${content.color}`}>
+                        {/* Friend request */}
+                        {content.icon === 'friend' && (
                           <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                           </svg>
                         )}
-                        {notification.type === 'friend_accepted' && (
+                        {/* Check mark */}
+                        {content.icon === 'check' && (
                           <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
-                        {notification.type === 'event_rsvp' && (
+                        {/* Event */}
+                        {content.icon === 'event' && (
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                        {/* Heart (like) */}
+                        {content.icon === 'heart' && (
+                          <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        )}
+                        {/* Comment */}
+                        {content.icon === 'comment' && (
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                        )}
+                        {/* Reply */}
+                        {content.icon === 'reply' && (
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                          </svg>
+                        )}
+                        {/* Bookmark (save) */}
+                        {content.icon === 'bookmark' && (
+                          <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                          </svg>
+                        )}
+                        {/* Calendar (event invite) */}
+                        {content.icon === 'calendar' && (
                           <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
@@ -305,6 +438,30 @@ export default function NotificationsPage() {
                             </svg>
                             Connected
                           </span>
+                        </div>
+                      )}
+
+                      {/* Action buttons for event invites */}
+                      {notification.type === 'event_invite' && content.showActions && (
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleAcceptEventInvite(notification)
+                            }}
+                            className="flex-1 py-2 px-4 bg-gradient-to-r from-pink-500 to-orange-400 text-white rounded-xl font-medium text-sm hover:opacity-90 transition-all"
+                          >
+                            View Event
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeclineEventInvite(notification)
+                            }}
+                            className="flex-1 py-2 px-4 bg-white/10 border border-white/10 text-white/70 rounded-xl font-medium text-sm hover:bg-white/20 transition-all"
+                          >
+                            Decline
+                          </button>
                         </div>
                       )}
                     </div>
