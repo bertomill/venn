@@ -57,8 +57,10 @@ export default function ChatPage() {
           // Only add if it's part of this conversation
           if (newMsg.receiver_id === otherUserId) {
             setMessages(prev => {
-              // Prevent duplicates
+              // Prevent duplicates - check both real IDs and temp IDs
               if (prev.some(m => m.id === newMsg.id)) return prev
+              // Don't add if we already have this message optimistically (will be replaced)
+              if (prev.some(m => m.id.startsWith('temp-') && m.content === newMsg.content)) return prev
               return [...prev, newMsg]
             })
           }
@@ -181,17 +183,39 @@ export default function ChatPage() {
     const content = newMessage.trim()
     setNewMessage('')
 
-    const { error } = await supabase
+    // Create optimistic message
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      sender_id: currentUser.id,
+      receiver_id: otherUserId,
+      content,
+      read: false,
+      created_at: new Date().toISOString()
+    }
+
+    // Add optimistically
+    setMessages(prev => [...prev, optimisticMessage])
+
+    const { data, error } = await supabase
       .from('messages')
       .insert({
         sender_id: currentUser.id,
         receiver_id: otherUserId,
         content
       } as never)
+      .select()
+      .single()
 
     if (error) {
       console.error('Error sending message:', error)
-      setNewMessage(content) // Restore message on error
+      // Remove optimistic message and restore input on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
+      setNewMessage(content)
+    } else if (data) {
+      // Replace optimistic message with real one
+      setMessages(prev => prev.map(m =>
+        m.id === optimisticMessage.id ? (data as Message) : m
+      ))
     }
 
     setSending(false)

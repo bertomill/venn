@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter, useParams } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 
 interface Profile {
   id: string
@@ -308,9 +309,10 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-24">
-      {/* Header with Gradient Background */}
-      <header className="relative">
+    <AppShell showHeader={false}>
+      <div className="min-h-screen pb-8">
+        {/* Header with Gradient Background */}
+        <header className="relative">
         {/* Gradient Background */}
         <div className="h-48 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 relative">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0a0a0a]" />
@@ -354,18 +356,30 @@ export default function UserProfilePage() {
               </p>
             )}
 
-            {/* Connection Button */}
+            {/* Action Buttons */}
             <div className="mt-4 flex gap-3">
+              {/* Message button - always visible */}
+              <button
+                onClick={() => router.push(`/messages/${userId}`)}
+                className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:opacity-90 transition-all flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Message
+              </button>
+
+              {/* Connection status button */}
               {connectionStatus === 'none' && (
                 <button
                   onClick={sendFriendRequest}
                   disabled={actionLoading}
-                  className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2.5 bg-white/10 border border-white/20 text-white rounded-xl font-semibold hover:bg-white/20 transition-all disabled:opacity-50 flex items-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
-                  {actionLoading ? 'Sending...' : 'Add Friend'}
+                  {actionLoading ? 'Sending...' : 'Connect'}
                 </button>
               )}
 
@@ -378,7 +392,7 @@ export default function UserProfilePage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  {actionLoading ? 'Canceling...' : 'Request Sent'}
+                  {actionLoading ? 'Canceling...' : 'Pending'}
                 </button>
               )}
 
@@ -402,27 +416,16 @@ export default function UserProfilePage() {
               )}
 
               {connectionStatus === 'accepted' && (
-                <>
-                  <button
-                    onClick={() => router.push(`/messages/${userId}`)}
-                    className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:opacity-90 transition-all flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Message
-                  </button>
-                  <button
-                    onClick={removeFriend}
-                    disabled={actionLoading}
-                    className="px-6 py-2.5 bg-white/10 border border-white/20 text-white rounded-xl font-semibold hover:bg-white/20 transition-all disabled:opacity-50 flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Friends
-                  </button>
-                </>
+                <button
+                  onClick={removeFriend}
+                  disabled={actionLoading}
+                  className="px-6 py-2.5 bg-white/10 border border-white/20 text-white rounded-xl font-semibold hover:bg-white/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Connected
+                </button>
               )}
             </div>
           </div>
@@ -585,53 +588,7 @@ export default function UserProfilePage() {
           </section>
         )}
       </main>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 safe-area-bottom">
-        <div className="max-w-2xl mx-auto px-6 py-3">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="flex flex-col items-center gap-1 px-6 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span className="text-xs text-white/40">Home</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/events')}
-              className="flex flex-col items-center gap-1 px-6 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="text-xs text-white/40">Events</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/discover')}
-              className="flex flex-col items-center gap-1 px-6 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span className="text-xs text-white/40">Discover</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/profile')}
-              className="flex flex-col items-center gap-1 px-6 py-2"
-            >
-              <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span className="text-xs text-white/40">Profile</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-    </div>
+      </div>
+    </AppShell>
   )
 }

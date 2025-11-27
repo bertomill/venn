@@ -186,7 +186,8 @@ export default function DiscoverPage() {
               return (
                 <div
                   key={person.id}
-                  className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
+                  className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all cursor-pointer"
+                  onClick={() => router.push(`/user/${person.id}`)}
                 >
                   {/* Header with avatar and match score */}
                   <div className="p-5">
@@ -268,26 +269,44 @@ export default function DiscoverPage() {
                     )}
                   </div>
 
-                  {/* Action button - Apple style */}
-                  <div className="px-5 pb-5 flex justify-end">
+                  {/* Action buttons */}
+                  <div className="px-5 pb-5 flex justify-end gap-2">
+                    {/* Message button - always visible */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/messages/${person.id}`)
+                      }}
+                      className="px-4 py-1.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 text-white rounded-full font-medium text-sm transition-all"
+                    >
+                      Message
+                    </button>
+
+                    {/* Connection status button */}
                     {status === 'connected' ? (
                       <button
-                        disabled
-                        className="px-5 py-1.5 bg-white/10 text-white/60 rounded-full font-medium text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-1.5 bg-white/10 text-white/60 rounded-full font-medium text-sm flex items-center gap-1"
                       >
+                        <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                         Connected
                       </button>
                     ) : status === 'pending' ? (
                       <button
-                        disabled
-                        className="px-5 py-1.5 bg-white/10 text-white/40 rounded-full font-medium text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-1.5 bg-white/10 text-white/40 rounded-full font-medium text-sm"
                       >
                         Pending
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleConnect(person.id)}
-                        className="px-5 py-1.5 bg-white/15 hover:bg-white/20 text-white/80 rounded-full font-medium text-sm transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleConnect(person.id)
+                        }}
+                        className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full font-medium text-sm transition-colors"
                       >
                         Connect
                       </button>
