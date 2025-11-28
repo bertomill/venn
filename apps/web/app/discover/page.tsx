@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
+import Image from 'next/image'
 
 interface SimilarUser {
   id: string
@@ -20,6 +21,111 @@ interface SimilarUser {
   similarity: number
 }
 
+const USE_MOCK = true
+const PAGE_SIZE = 20
+const MAX_PAGES = 5
+const FETCH_LIMIT = PAGE_SIZE * MAX_PAGES
+
+const MOCK_NAMES = [
+  'Ava Thompson',
+  'Liam Patel',
+  'Noah Kim',
+  'Emma Garcia',
+  'Olivia Brown',
+  'Sophia Nguyen',
+  'Mason Wright',
+  'Ethan Clark',
+  'Isabella Diaz',
+  'Mia Wilson',
+  'Lucas Baker',
+  'Amelia Lewis',
+  'James Hall',
+  'Benjamin Young',
+  'Charlotte King',
+  'Harper Scott',
+  'Elijah Green',
+  'Aria Adams',
+  'Evelyn Turner',
+  'Henry Rivera',
+  'Jack Torres',
+  'Leo Perez',
+  'Chloe Bennett',
+  'Zoe Ross',
+  'Layla Foster',
+  'Nora Howard',
+  'Abigail Ward',
+  'Hazel Murphy',
+  'Caleb Stone',
+  'Maya Brooks',
+  'Miles Cooper',
+  'Scarlett Reed',
+  'Penelope Hayes',
+  'Wyatt Ellis',
+  'Ellie Fisher',
+  'Ruby Hart',
+  'Parker James',
+  'Audrey Lane',
+  'Julian Price'
+]
+
+const MOCK_INTERESTS = [
+  'Running',
+  'Yoga',
+  'Photography',
+  'Cooking',
+  'Hiking',
+  'Startups',
+  'Design',
+  'Music',
+  'Books',
+  'Tech',
+  'Art',
+  'Meditation',
+  'Volunteering',
+  'Investing',
+  'Board Games',
+  'Cycling',
+  'Baking',
+  'Travel',
+  'Film',
+  'Gardening'
+]
+
+const MOCK_VIBES = ['professional', 'social', 'creative', 'wellness', 'learning']
+const MOCK_SIZES = ['Intimate', 'Medium', 'Large', 'Any']
+
+function sample<T>(arr: T[], n: number) {
+  const copy = [...arr]
+  const out: T[] = []
+  while (out.length < n && copy.length) {
+    const idx = Math.floor(Math.random() * copy.length)
+    out.push(copy.splice(idx, 1)[0])
+  }
+  return out
+}
+
+const getRandom = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
+
+const generateMockUsers = (count: number): SimilarUser[] => {
+  return Array.from({ length: count }, (_, index) => {
+    const similarity = 0.5 + Math.random() * 0.45
+    return {
+      id: `mock-${index + 1}`,
+      full_name: MOCK_NAMES[index % MOCK_NAMES.length],
+      bio: null,
+      location: 'Toronto',
+      avatar_url: null,
+      about_me: `I love ${getRandom(MOCK_INTERESTS).toLowerCase()} meetups around the city.`,
+      looking_for: `Looking to meet people into ${getRandom(MOCK_INTERESTS).toLowerCase()}.`,
+      event_size_preference: MOCK_SIZES[index % MOCK_SIZES.length],
+      event_vibe: sample(MOCK_VIBES, Math.random() > 0.5 ? 2 : 1),
+      interests: sample(MOCK_INTERESTS, 4),
+      matchScore: Math.round(similarity * 100),
+      similarity
+    }
+  }).sort((a, b) => b.similarity - a.similarity)
+}
+
 export default function DiscoverPage() {
   const router = useRouter()
   const [users, setUsers] = useState<SimilarUser[]>([])
@@ -29,10 +135,30 @@ export default function DiscoverPage() {
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(1)
   const supabase = createSupabaseBrowserClient()
 
+  const totalPages = Math.max(
+    1,
+    Math.min(MAX_PAGES, Math.ceil(filteredUsers.length / PAGE_SIZE))
+  )
+  const currentPageUsers = filteredUsers.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  )
+  const canConnect = !USE_MOCK
+
   useEffect(() => {
+    if (USE_MOCK) {
+      const mock = generateMockUsers(FETCH_LIMIT)
+      setUsers(mock)
+      setFilteredUsers(mock)
+      setLoading(false)
+      return
+    }
+
     checkUser()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -48,6 +174,7 @@ export default function DiscoverPage() {
         u.interests?.some(i => i.toLowerCase().includes(query))
       ))
     }
+    setPage(1)
   }, [searchQuery, users])
 
   const checkUser = async () => {
@@ -110,6 +237,7 @@ export default function DiscoverPage() {
   }
 
   const handleConnect = async (targetUserId: string) => {
+    if (!canConnect) return
     if (!user) return
 
     try {
@@ -179,134 +307,93 @@ export default function DiscoverPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredUsers.map((person) => {
-              const status = getConnectionStatus(person.id)
+          <div className="space-y-2">
+            {currentPageUsers.map((person) => {
+              const status = canConnect ? getConnectionStatus(person.id) : 'none'
+              const topInterests = (person.interests || []).slice(0, 3)
+              const topVibes = (person.event_vibe || []).slice(0, 2)
 
               return (
                 <div
                   key={person.id}
-                  className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all cursor-pointer"
-                  onClick={() => router.push(`/user/${person.id}`)}
+                  className="flex flex-col gap-4 bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-white/20 transition-all md:flex-row md:items-center"
                 >
-                  {/* Header with avatar and match score */}
-                  <div className="p-5">
-                    <div className="flex items-start gap-4">
-                      {/* Avatar */}
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center flex-shrink-0">
-                        {person.avatar_url ? (
-                          <img
-                            src={person.avatar_url}
-                            alt={person.full_name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-2xl font-bold text-white">
-                            {person.full_name?.[0]?.toUpperCase() || '?'}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Name and match score */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-lg font-semibold text-white truncate">
-                            {person.full_name}
-                          </h3>
-                          <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
-                            person.matchScore >= 70
-                              ? 'bg-green-500/20 text-green-300'
-                              : person.matchScore >= 50
-                              ? 'bg-blue-500/20 text-blue-300'
-                              : 'bg-white/10 text-white/60'
-                          }`}>
-                            {person.matchScore}% match
-                          </span>
-                        </div>
-
-                        {person.location && (
-                          <p className="text-sm text-white/50 flex items-center gap-1 mt-1">
-                            <span>📍</span> {person.location}
-                          </p>
-                        )}
-                      </div>
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center overflow-hidden text-white font-bold flex-shrink-0">
+                      {person.avatar_url ? (
+                        <Image
+                          src={person.avatar_url}
+                          alt={person.full_name || '?'}
+                          width={48}
+                          height={48}
+                          className="w-full h-full rounded-full object-cover"
+                          sizes="48px"
+                        />
+                      ) : (
+                        <span>{person.full_name?.[0]?.toUpperCase() || '?'}</span>
+                      )}
                     </div>
 
-                    {/* About */}
-                    {person.about_me && (
-                      <p className="text-sm text-white/70 mt-4 line-clamp-2">
-                        {person.about_me}
-                      </p>
-                    )}
-
-                    {/* Looking for */}
-                    {person.looking_for && (
-                      <div className="mt-3">
-                        <p className="text-xs text-white/40 mb-1">Looking to meet</p>
-                        <p className="text-sm text-white/60 line-clamp-1">
-                          {person.looking_for}
-                        </p>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-white font-semibold truncate">{person.full_name}</span>
+                        {typeof person.matchScore === 'number' && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/10 text-white/70">
+                            {person.matchScore}% match
+                          </span>
+                        )}
                       </div>
-                    )}
-
-                    {/* Interests */}
-                    {person.interests?.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-4">
-                        {person.interests.slice(0, 4).map((interest, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 bg-white/10 text-white/70 rounded-full text-xs"
-                          >
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/60">
+                        {person.location && <span>📍 {person.location}</span>}
+                        {topInterests.map((interest, idx) => (
+                          <span key={idx} className="px-2 py-0.5 rounded-full bg-white/10 text-white/70">
                             {interest}
                           </span>
                         ))}
-                        {person.interests.length > 4 && (
-                          <span className="px-2 py-0.5 text-white/40 text-xs">
-                            +{person.interests.length - 4} more
+                        {topVibes.map((vibe) => (
+                          <span
+                            key={vibe}
+                            className="px-2 py-0.5 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 capitalize"
+                          >
+                            {vibe}
                           </span>
-                        )}
+                        ))}
                       </div>
-                    )}
+                      {person.about_me && (
+                        <p className="text-xs text-white/50 mt-2 line-clamp-2">{person.about_me}</p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Action buttons */}
-                  <div className="px-5 pb-5 flex justify-end gap-2">
-                    {/* Message button - always visible */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        router.push(`/messages/${person.id}`)
-                      }}
-                      className="px-4 py-1.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 text-white rounded-full font-medium text-sm transition-all"
-                    >
-                      Message
-                    </button>
-
-                    {/* Connection status button */}
-                    {status === 'connected' ? (
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-4 py-1.5 bg-white/10 text-white/60 rounded-full font-medium text-sm flex items-center gap-1"
-                      >
-                        <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Connected
-                      </button>
-                    ) : status === 'pending' ? (
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-4 py-1.5 bg-white/10 text-white/40 rounded-full font-medium text-sm"
-                      >
-                        Pending
-                      </button>
+                  <div className="w-full md:w-40 flex-shrink-0">
+                    {canConnect ? (
+                      status === 'connected' ? (
+                        <button
+                          disabled
+                          className="w-full py-2 bg-green-500/20 border border-green-500/30 text-green-300 rounded-xl text-sm"
+                        >
+                          Connected
+                        </button>
+                      ) : status === 'pending' ? (
+                        <button
+                          disabled
+                          className="w-full py-2 bg-white/10 border border-white/10 text-white/60 rounded-xl text-sm"
+                        >
+                          Pending
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleConnect(person.id)}
+                          className="w-full py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-sm hover:opacity-90"
+                        >
+                          Connect
+                        </button>
+                      )
                     ) : (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleConnect(person.id)
-                        }}
-                        className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full font-medium text-sm transition-colors"
+                        disabled
+                        className="w-full py-2 bg-white/10 border border-white/10 text-white/60 rounded-xl text-sm cursor-not-allowed"
+                        title="Mock data"
                       >
                         Connect
                       </button>
@@ -315,6 +402,38 @@ export default function DiscoverPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {filteredUsers.length > PAGE_SIZE && (
+          <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
+            <button
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 rounded-lg bg-white/10 text-white/80 disabled:opacity-40"
+            >
+              Prev
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+              <button
+                key={pageNumber}
+                onClick={() => setPage(pageNumber)}
+                className={`px-3 py-1 rounded-lg ${
+                  pageNumber === page ? 'bg-white text-black' : 'bg-white/10 text-white/80'
+                }`}
+              >
+                {pageNumber}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 rounded-lg bg-white/10 text-white/80 disabled:opacity-40"
+            >
+              Next
+            </button>
           </div>
         )}
       </main>
