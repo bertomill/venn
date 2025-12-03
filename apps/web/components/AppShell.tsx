@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import NotificationBell from './NotificationBell'
 import MessageIcon from './MessageIcon'
@@ -25,6 +26,21 @@ export default function AppShell({
 }: AppShellProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const [collapsed, setCollapsed] = useState(false)
+
+  // Persist collapsed state in localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar-collapsed')
+    if (saved !== null) {
+      setCollapsed(saved === 'true')
+    }
+  }, [])
+
+  const toggleCollapsed = () => {
+    const newState = !collapsed
+    setCollapsed(newState)
+    localStorage.setItem('sidebar-collapsed', String(newState))
+  }
 
   const navItems = [
     {
@@ -51,6 +67,15 @@ export default function AppShell({
       icon: (active: boolean) => (
         <svg className="w-6 h-6" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+    },
+    {
+      name: 'Groups',
+      href: '/groups',
+      icon: (active: boolean) => (
+        <svg className="w-6 h-6" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
         </svg>
       ),
     },
@@ -84,11 +109,35 @@ export default function AppShell({
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Desktop Sidebar - hidden on mobile */}
-      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 xl:w-72 bg-black/40 border-r border-white/5 z-50">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-6">
-          <img src="/Venn-Logo.png" alt="Venn" className="w-10 h-10" />
-          <span className="text-xl font-bold text-white">Venn</span>
+      <aside className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 bg-black/40 border-r border-white/5 z-50 transition-all duration-300 ${collapsed ? 'lg:w-16' : 'lg:w-64 xl:w-72'}`}>
+        {/* Logo + Collapse Toggle */}
+        <div className={`flex items-center py-6 ${collapsed ? 'px-3 justify-center' : 'px-6 justify-between'}`}>
+          <div className="flex items-center gap-3">
+            <img src="/Venn-Logo.png" alt="Venn" className="w-10 h-10 flex-shrink-0" />
+            {!collapsed && <span className="text-xl font-bold text-white">Venn</span>}
+          </div>
+          {!collapsed && (
+            <button
+              onClick={toggleCollapsed}
+              className="p-2 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all"
+              title="Collapse sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          {collapsed && (
+            <button
+              onClick={toggleCollapsed}
+              className="p-2 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all mt-2"
+              title="Expand sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Navigation */}
@@ -99,14 +148,15 @@ export default function AppShell({
               <button
                 key={item.name}
                 onClick={() => router.push(item.href)}
+                title={collapsed ? item.name : undefined}
                 className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
                   active
                     ? 'bg-white/10 text-white font-semibold'
                     : 'text-white/60 hover:bg-white/5 hover:text-white'
-                }`}
+                } ${collapsed ? 'justify-center px-2' : ''}`}
               >
                 {item.icon(active)}
-                <span className="text-base">{item.name}</span>
+                {!collapsed && <span className="text-base">{item.name}</span>}
               </button>
             )
           })}
@@ -114,12 +164,13 @@ export default function AppShell({
           {/* Create Button */}
           <button
             onClick={() => router.push('/create')}
-            className="w-full flex items-center gap-4 px-4 py-3 mt-4 rounded-xl bg-gradient-to-r from-primary-400 to-primary-600 text-white font-semibold hover:opacity-90 transition-opacity"
+            title={collapsed ? 'Create' : undefined}
+            className={`w-full flex items-center gap-4 px-4 py-3 mt-4 rounded-xl bg-gradient-to-r from-primary-400 to-primary-600 text-white font-semibold hover:opacity-90 transition-opacity ${collapsed ? 'justify-center px-2' : ''}`}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
             </svg>
-            <span className="text-base">Create</span>
+            {!collapsed && <span className="text-base">Create</span>}
           </button>
         </nav>
 
@@ -127,26 +178,28 @@ export default function AppShell({
         <div className="px-3 py-4 border-t border-white/5 space-y-1">
           <button
             onClick={() => router.push('/messages')}
+            title={collapsed ? 'Messages' : undefined}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
               pathname.startsWith('/messages')
                 ? 'bg-white/10 text-white font-semibold'
                 : 'text-white/60 hover:bg-white/5 hover:text-white'
-            }`}
+            } ${collapsed ? 'justify-center px-2' : ''}`}
           >
             <MessageIcon showBadgeOnly />
-            <span className="text-base">Messages</span>
+            {!collapsed && <span className="text-base">Messages</span>}
           </button>
 
           <button
             onClick={() => router.push('/notifications')}
+            title={collapsed ? 'Notifications' : undefined}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
               pathname === '/notifications'
                 ? 'bg-white/10 text-white font-semibold'
                 : 'text-white/60 hover:bg-white/5 hover:text-white'
-            }`}
+            } ${collapsed ? 'justify-center px-2' : ''}`}
           >
             <NotificationBell iconOnly />
-            <span className="text-base">Notifications</span>
+            {!collapsed && <span className="text-base">Notifications</span>}
           </button>
 
           {/* Profile Section */}
@@ -154,9 +207,10 @@ export default function AppShell({
             <div className="mt-4 pt-4 border-t border-white/5">
               <button
                 onClick={() => router.push('/profile')}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/60 hover:bg-white/5 hover:text-white transition-all"
+                title={collapsed ? profile.full_name || 'Profile' : undefined}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/60 hover:bg-white/5 hover:text-white transition-all ${collapsed ? 'justify-center px-2' : ''}`}
               >
-                <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                <div className={`bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ${collapsed ? 'w-8 h-8' : 'w-10 h-10'}`}>
                   {profile.avatar_url ? (
                     <img
                       src={profile.avatar_url}
@@ -167,20 +221,23 @@ export default function AppShell({
                     profile.full_name?.[0]?.toUpperCase() || '?'
                   )}
                 </div>
-                <div className="flex-1 text-left min-w-0">
-                  <div className="text-white font-medium truncate">{profile.full_name || 'User'}</div>
-                  <div className="text-white/40 text-sm truncate">View profile</div>
-                </div>
+                {!collapsed && (
+                  <div className="flex-1 text-left min-w-0">
+                    <div className="text-white font-medium truncate">{profile.full_name || 'User'}</div>
+                    <div className="text-white/40 text-sm truncate">View profile</div>
+                  </div>
+                )}
               </button>
               {onSignOut && (
                 <button
                   onClick={onSignOut}
-                  className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-white/60 hover:bg-white/5 hover:text-red-400 transition-all mt-1"
+                  title={collapsed ? 'Sign Out' : undefined}
+                  className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-white/60 hover:bg-white/5 hover:text-red-400 transition-all mt-1 ${collapsed ? 'justify-center px-2' : ''}`}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
-                  <span className="text-base">Sign Out</span>
+                  {!collapsed && <span className="text-base">Sign Out</span>}
                 </button>
               )}
             </div>
@@ -189,7 +246,7 @@ export default function AppShell({
       </aside>
 
       {/* Main Content Area */}
-      <div className="lg:pl-64 xl:pl-72">
+      <div className={`transition-all duration-300 ${collapsed ? 'lg:pl-16' : 'lg:pl-64 xl:pl-72'}`}>
         {/* Mobile Header - hidden on desktop */}
         {showHeader && (
           <header className="lg:hidden sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">

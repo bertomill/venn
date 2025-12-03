@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { useRouter, useParams } from 'next/navigation'
+import BreakoutGroups from '@/components/BreakoutGroups'
 
 interface Profile {
   id: string
@@ -392,6 +393,13 @@ export default function EventDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Breakout Groups */}
+            <BreakoutGroups
+              eventId={event.id}
+              isCreator={event.creator_id === user?.id}
+              attendeeCount={goingAttendees.length}
+            />
           </div>
 
           {/* Sidebar */}
